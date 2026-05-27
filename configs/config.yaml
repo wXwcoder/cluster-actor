@@ -1,0 +1,22 @@
+# 集群配置
+cluster_name: "cluster-actor"
+node_name: "node-1"
+host: "127.0.0.1"
+port: 8080
+log_level: "info"
+health_check_port: 8180
+
+# Consul服务发现配置
+consul:
+  address: "127.0.0.1:8500"
+  scheme: "http"
+  datacenter: "dc1"
+  ttl_heartbeat_interval: 10
+  deregister_critical_service_after: 30
+
+# Actor系统配置
+actor:
+  max_grain_count: 10000
+  activation_timeout: 3000
+  idle_timeout: 30
+  remote_call_timeout: 5000

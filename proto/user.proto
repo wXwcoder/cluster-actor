@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package gen;
+
+option go_package = "github.com/cluster-actor/server/gen;gen"; 
+
+// LoginReq 登录请求消息
+message LoginReq {
+  // 用户名 
+  string Username = 1;
+  // 密码
+  string Password = 2;
+}
+
+// LoginResp 登录响应消息
+message LoginResp {
+  // 登录结果
+  bool Success = 1;
+  // 登录成功时返回的用户身份
+  int64 UserId = 2;  
+}

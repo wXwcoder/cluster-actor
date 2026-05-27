@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package gen;
+
+option go_package = "github.com/cluster-actor/server/gen;gen"; 
+
+// RpcReq 打招呼请求消息
+message RpcReq {
+  string Kind = 1;
+  string Identity = 2;
+  string Name = 3;
+  int32 MsgId = 4;
+  bytes Data = 5;
+}
+
+// RpcResp 打招呼响应消息
+message RpcResp {
+  string Message = 1;
+  int64 CallCount = 2;
+  string Identity = 3;
+  int32 MsgId = 4;
+  bytes Data = 5;
+}
