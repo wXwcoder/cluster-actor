@@ -96,7 +96,7 @@ cluster-actor/
 ### 安装依赖
 
 ```bash
-cd e:\xcode\cluster-actor
+cd cluster-actor
 go mod tidy
 ```
 
@@ -124,16 +124,8 @@ start.bat
 
 ## 配置说明
 
-配置文件示例（`configs/config1.yaml`）：
-
-```yaml
-cluster:
-  name: "my-cluster"
-  host: "127.0.0.1"
-  port: 8080
-consul:
-  address: "127.0.0.1:8500"
-```
+配置文件示例（`configs/config.yaml`）：
+[configs/config.yaml](configs/config.yaml)
 
 多节点部署时，复制配置文件并修改端口号：
 - `configs/config1.yaml` - 节点1配置（端口 8080）
@@ -141,12 +133,7 @@ consul:
 
 ## API 接口
 
-| 端点 | 方法 | 描述 |
-|------|------|------|
-| `/health` | GET | 健康检查 |
-| `/cluster/members` | GET | 集群成员列表 |
-| `/cluster/grains` | GET | Grain 实例列表 |
-| `/grain/call` | POST | Grain 调用 |
+API 接口文档：[API.md](API.md)
 
 ## 测试
 
