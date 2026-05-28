@@ -12,3 +12,14 @@ type MemberInfo struct {
 	Alive     bool      `json:"alive"`
 	LastSeen  time.Time `json:"last_seen"`
 }
+
+// KindType 集群成员类型定义
+type KindType string
+
+// KindTypeChat 聊天成员类型
+
+const (
+	Kind_Hello KindType = "hello"
+	Kind_User  KindType = "user"
+	Kind_Chat  KindType = "chat"
+)

@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package gen;
+
+option go_package = "github.com/cluster-actor/server/gen;gen";
+
+enum MsgId {
+  None = 0;
+  
+  // 登录/登出模块 (1101-1199)
+  PChatLoginReq = 1101;
+  PChatLoginResp = 1102;
+  PChatLogoutReq = 1103;
+  PChatLogoutResp = 1104;
+  PChatUserMessage = 1105;
+  
+  // 用户信息模块 (1201-1299)
+  PChatGetUserInfoReq = 1201;
+  PChatGetUserInfoResp = 1202;
+  
+  // 房间管理模块 (1301-1399)
+  PChatCreateRoomReq = 1301;
+  PChatCreateRoomResp = 1302;
+  PChatJoinRoomReq = 1303;
+  PChatJoinRoomResp = 1304;
+  PChatLeaveRoomReq = 1305;
+  PChatLeaveRoomResp = 1306;
+  PChatGetRoomInfoReq = 1307;
+  PChatGetRoomInfoResp = 1308;
+  PChatGetRoomUsersReq = 1309;
+  PChatGetRoomUsersResp = 1310;
+  
+  // 消息收发模块 (1401-1499)
+  PChatSendMessageReq = 1401;
+  PChatSendMessageResp = 1402;
+  PChatGetMessagesReq = 1403;
+  PChatGetMessagesResp = 1404;
+  
+  // 房间列表模块 (1501-1599)
+  PChatGetRoomListReq = 1501;
+  PChatGetRoomListResp = 1502;
+}

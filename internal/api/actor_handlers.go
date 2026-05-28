@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/asynkron/protoactor-go/cluster"
 	"github.com/cluster-actor/server/gen"
+	"github.com/cluster-actor/server/internal/global"
 	"github.com/gin-gonic/gin"
 )
 
@@ -205,22 +205,11 @@ func (r *Router) GrainCall(c *gin.Context) {
 		return
 	}
 
-	// 通过 cluster.RequestFuture 发送请求到 Grain
-	// 框架使用 DistHash 算法计算目标节点：
-	// - 如果目标节点是当前节点，本地激活
-	// - 如果目标节点是其他节点，通过 gRPC 远程激活和调用
-	// 注意：必须使用 proto.Message 指针类型，否则远程调用会序列化失败
-	// 参数顺序: identity, kind, message
-	future, err := r.cluster.RequestFuture(identity, kindName, &gen.RpcReq{Kind: kindName, Identity: identity, Name: name}, cluster.WithTimeout(time.Second*5))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    -1,
-			"message": fmt.Sprintf("获取Grain失败: %v", err),
-		})
-		return
-	}
-
-	result, err := future.Result()
+	resp, err := global.RequestFuture(&gen.RpcMsg{
+		Kind:     kindName,
+		Identity: identity,
+		Name:     name,
+	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"code":    -1,
@@ -229,22 +218,13 @@ func (r *Router) GrainCall(c *gin.Context) {
 		return
 	}
 
-	// 处理响应（proto 消息为指针类型）
-	if resp, ok := result.(*gen.RpcResp); ok {
-		c.JSON(http.StatusOK, gin.H{
-			"code": 0,
-			"data": gin.H{
-				"kind_name":  kindName,
-				"identity":   identity,
-				"result":     resp.Message,
-				"call_count": resp.CallCount,
-			},
-		})
-		return
-	}
-
-	c.JSON(http.StatusBadRequest, gin.H{
-		"code":    -1,
-		"message": "未知的响应类型",
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": gin.H{
+			"kind_name": kindName,
+			"identity":  resp.Identity,
+			"result":    string(resp.Data),
+		},
 	})
+	log.Printf("RequestFuture: %+v", resp)
 }

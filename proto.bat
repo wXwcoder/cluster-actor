@@ -8,8 +8,11 @@ echo Generating Go code from proto files...
 
 mkdir %OUTPUT_DIR% 2>nul
 
-protoc --go_out=%OUTPUT_DIR% --go_opt=M%PROTO_DIR%/base.proto=. %PROTO_DIR%/base.proto
-protoc --go_out=%OUTPUT_DIR% --go_opt=M%PROTO_DIR%/user.proto=. %PROTO_DIR%/user.proto
+protoc --proto_path=%PROTO_DIR% --go_out=%OUTPUT_DIR% --go_opt=paths=source_relative %PROTO_DIR%/error.proto
+protoc --proto_path=%PROTO_DIR% --go_out=%OUTPUT_DIR% --go_opt=paths=source_relative %PROTO_DIR%/base.proto
+protoc --proto_path=%PROTO_DIR% --go_out=%OUTPUT_DIR% --go_opt=paths=source_relative %PROTO_DIR%/user.proto
+protoc --proto_path=%PROTO_DIR% --go_out=%OUTPUT_DIR% --go_opt=paths=source_relative %PROTO_DIR%/chat.proto
+protoc --proto_path=%PROTO_DIR% --go_out=%OUTPUT_DIR% --go_opt=paths=source_relative %PROTO_DIR%/msgid.proto
 
 if %errorlevel% equ 0 (
     echo Successfully generated Go code to %OUTPUT_DIR%

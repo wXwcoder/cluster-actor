@@ -23,6 +23,7 @@ type Router struct {
 	isRunning         func() bool
 	getLocalInstances func() []grains.GrainInstance
 	getKindNames      func() []string
+	wsManager         *WebSocketManager
 }
 
 // RouterDeps 路由器依赖项
@@ -46,16 +47,18 @@ type TopologyEvent struct {
 // NewRouter 创建路由管理器
 func NewRouter(deps RouterDeps) *Router {
 	gin.SetMode(gin.ReleaseMode)
+	wsManager := NewWebSocketManager(deps.Cluster)
 	r := &Router{
-		engine:           gin.New(),
-		cfg:              deps.Cfg,
-		nodeName:         deps.NodeName,
-		cluster:          deps.Cluster,
-		getMembers:       deps.GetMembers,
-		memberCount:      deps.MemberCount,
-		isRunning:        deps.IsRunning,
+		engine:            gin.New(),
+		cfg:               deps.Cfg,
+		nodeName:          deps.NodeName,
+		cluster:           deps.Cluster,
+		getMembers:        deps.GetMembers,
+		memberCount:       deps.MemberCount,
+		isRunning:         deps.IsRunning,
 		getLocalInstances: deps.GetLocalInstances,
 		getKindNames:      deps.GetKindNames,
+		wsManager:         wsManager,
 	}
 
 	r.setupRoutes()
@@ -70,6 +73,16 @@ func (r *Router) setupRoutes() {
 
 	// 健康检查
 	r.engine.GET("/health", r.healthCheck)
+
+	// WebSocket路由
+	r.engine.GET("/ws", func(c *gin.Context) {
+		r.wsManager.HandleWebSocket(c.Writer, c.Request)
+	})
+
+	// 静态文件服务
+	r.engine.Static("/static", "./web/static")
+	r.engine.StaticFile("/", "./web/index.html")
+	r.engine.StaticFile("/chat", "./web/chat.html")
 
 	// 集群相关API
 	clusterGroup := r.engine.Group("/api/cluster")

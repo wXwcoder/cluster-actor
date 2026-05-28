@@ -17,5 +17,5 @@ if %ERRORLEVEL% neq 0 (
 )
 
 
-start "node-1" go run .\main.go -config configs\config1.yaml
-start "node-2" go run .\main.go -config configs\config2.yaml
+::start "node-1" go run .\main.go -config configs\config1.yaml
+::start "node-2" go run .\main.go -config configs\config2.yaml

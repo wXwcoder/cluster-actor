@@ -13,7 +13,9 @@ import (
 	"github.com/asynkron/protoactor-go/cluster/identitylookup/disthash"
 	"github.com/asynkron/protoactor-go/remote"
 	"github.com/cluster-actor/server/internal/config"
+	"github.com/cluster-actor/server/internal/global"
 	"github.com/cluster-actor/server/internal/grains"
+	"github.com/cluster-actor/server/pkg/types"
 )
 
 // Server 基于 protoactor-go 的集群服务器
@@ -45,15 +47,18 @@ func NewServer(cfg *config.ClusterConfig) (*Server, error) {
 	remoteConfig := remote.Configure(cfg.Host, cfg.Port)
 
 	// 创建 HelloGrain 的 Kind 配置
-	helloKind := cluster.NewKind("hello", actor.PropsFromProducer(func() actor.Actor {
-		return &grains.HelloGrain{}
+	helloKind := cluster.NewKind(string(types.Kind_Hello), actor.PropsFromProducer(func() actor.Actor {
+		return grains.NewHelloGrain()
 	}))
-	userKind := cluster.NewKind("user", actor.PropsFromProducer(func() actor.Actor {
-		return &grains.UserGrain{}
+	userKind := cluster.NewKind(string(types.Kind_User), actor.PropsFromProducer(func() actor.Actor {
+		return grains.NewUserGrain()
+	}))
+	chatKind := cluster.NewKind(string(types.Kind_Chat), actor.PropsFromProducer(func() actor.Actor {
+		return grains.NewChatGrain()
 	}))
 
 	// 配置 Cluster
-	clusterConfig := cluster.Configure(cfg.ClusterName, provider, lookup, remoteConfig, cluster.WithKinds(helloKind, userKind))
+	clusterConfig := cluster.Configure(cfg.ClusterName, provider, lookup, remoteConfig, cluster.WithKinds(helloKind, chatKind, userKind))
 
 	// 创建 Cluster 实例
 	c := cluster.New(system, clusterConfig)
@@ -64,6 +69,10 @@ func NewServer(cfg *config.ClusterConfig) (*Server, error) {
 		cluster:     c,
 		stopCh:      make(chan struct{}),
 	}
+
+	// 3. 初始化全局注册表
+	global.G.Cfg = cfg
+	global.G.Cluster = c
 
 	return srv, nil
 }

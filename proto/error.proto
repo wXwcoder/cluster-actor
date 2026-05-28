@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package gen;
+
+option go_package = "github.com/cluster-actor/server/gen;gen";
+
+// 聊天消息类型枚举
+enum ChatMsgType {
+  UNKNOWN = 0;
+  TEXT = 1;           // 文本消息
+  SYSTEM = 2;         // 系统消息
+  JOIN = 3;           // 加入房间通知
+  LEAVE = 4;          // 离开房间通知
+}
+
+// 错误码枚举
+enum ErrorCode {
+  OK = 0;               // 成功
+  UnknownMsgId = 1000; // 未知消息ID
+  UserNotLoggedIn = 1001; // 用户未登录
+  UserAlreadyOnline = 1002; // 用户已在线
+  RoomNotFound = 1003;     // 房间不存在
+  RoomFull = 1004;          // 房间已满
+  UserAlreadyInRoom = 1005; // 用户已在房间中
+  InvalidParams = 1006;     // 参数错误
+  SendFailed = 1007;        // 消息发送失败
+  CreateRoomFailed = 1008; // 创建房间失败
+  SerializeError = 1009; // 序列化错误
+  DeSerializeError = 1010; // 反序列化错误
+  
+}
