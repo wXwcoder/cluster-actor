@@ -22,8 +22,6 @@ type SessionManager interface {
 // 负责管理用户身份信息和登录状态
 type UserGrain struct {
 	BaseGrain
-	kind        string
-	identity    string
 	userId      int64
 	username    string
 	sessionId   string

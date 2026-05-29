@@ -45,6 +45,10 @@ func Rpc(identity string, kind string, name string, req proto.Message) (proto.Me
 	if !ok || respName == "" {
 		return nil, fmt.Errorf("未知的消息类型: %d", msgId)
 	}
+
+	if resp.Code != int32(gen.ErrorCode_OK) || resp.Data == nil {
+		return nil, fmt.Errorf("系统错误: %d", resp.Code)
+	}
 	//移除第一个字符P
 	respName = "gen." + respName[1:]
 	msgType, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(respName))

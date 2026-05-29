@@ -15,6 +15,7 @@ import (
 	"github.com/cluster-actor/server/internal/global"
 	"github.com/cluster-actor/server/internal/grains"
 	"github.com/cluster-actor/server/pkg/types"
+	"github.com/cluster-actor/server/pkg/utils"
 	"github.com/gorilla/websocket"
 )
 
@@ -277,10 +278,35 @@ func (wm *WebSocketManager) handleLogout(client *WSClient) {
 
 	wm.cluster.RequestFuture(userIdentity, string(types.Kind_User), logoutReq)
 
-	wm.unregisterClient(client)
+	resp, err := global.Rpc(userIdentity, string(types.Kind_User), "Logout", logoutReq)
+	if err != nil || resp == nil {
+		log.Printf("登出请求失败: %v", err)
+		wm.sendToClient(client, &WSMessage{
+			Type:    "error",
+			Payload: map[string]string{"message": "登出失败"},
+		})
+		return
+	}
+
+	if resp, ok := resp.(*gen.ChatLogoutResp); ok {
+		if resp.GetCode() == gen.ErrorCode_OK {
+			wm.unregisterClient(client)
+			wm.sendToClient(client, &WSMessage{
+				Type:    "logout_success",
+				Payload: map[string]string{"message": "登出成功"},
+			})
+		} else {
+			wm.sendToClient(client, &WSMessage{
+				Type:    "error",
+				Payload: map[string]string{"message": resp.GetMessage()},
+			})
+		}
+		return
+	}
+
 	wm.sendToClient(client, &WSMessage{
-		Type:    "logout_success",
-		Payload: map[string]string{"message": "登出成功"},
+		Type:    "error",
+		Payload: map[string]string{"message": "登出失败"},
 	})
 }
 
@@ -304,6 +330,9 @@ func (wm *WebSocketManager) handleCreateRoom(client *WSClient, msg *WSMessage) {
 	}
 
 	roomName := payload["room_name"].(string)
+	if roomName == "" {
+		roomName = "room-" + utils.Ulid()
+	}
 	maxMembers := int32(payload["max_members"].(float64))
 
 	roomIdentity := roomName
@@ -314,8 +343,8 @@ func (wm *WebSocketManager) handleCreateRoom(client *WSClient, msg *WSMessage) {
 		MaxMembers:  maxMembers,
 	}
 
-	_, err := wm.cluster.RequestFuture(roomIdentity, string(types.Kind_Chat), createReq)
-	if err != nil {
+	resp, err := global.Rpc(roomIdentity, string(types.Kind_Chat), "CreateRoom", createReq)
+	if err != nil || resp == nil {
 		log.Printf("创建房间请求失败: %v", err)
 		wm.sendToClient(client, &WSMessage{
 			Type:    "error",
@@ -324,9 +353,24 @@ func (wm *WebSocketManager) handleCreateRoom(client *WSClient, msg *WSMessage) {
 		return
 	}
 
+	if resp, ok := resp.(*gen.ChatCreateRoomResp); ok {
+		if resp.GetCode() == gen.ErrorCode_OK {
+			wm.sendToClient(client, &WSMessage{
+				Type:    "room_created",
+				Payload: map[string]string{"message": resp.GetMessage()},
+			})
+		} else {
+			wm.sendToClient(client, &WSMessage{
+				Type:    "error",
+				Payload: map[string]string{"message": resp.GetMessage()},
+			})
+		}
+		return
+	}
+
 	wm.sendToClient(client, &WSMessage{
-		Type:    "room_created",
-		Payload: nil,
+		Type:    "error",
+		Payload: map[string]string{"message": "创建房间失败"},
 	})
 }
 
@@ -357,8 +401,9 @@ func (wm *WebSocketManager) handleJoinRoom(client *WSClient, msg *WSMessage) {
 		Username: client.username,
 	}
 
-	future, err := wm.cluster.RequestFuture(roomID, string(types.Kind_Chat), joinReq)
-	if err != nil {
+	//future, err := wm.cluster.RequestFuture(roomID, string(types.Kind_Chat), joinReq)
+	resp, err := global.Rpc(roomID, string(types.Kind_Chat), "JoinRoom", joinReq)
+	if err != nil || resp == nil {
 		log.Printf("加入房间请求失败: %v", err)
 		wm.sendToClient(client, &WSMessage{
 			Type:    "error",
@@ -366,27 +411,22 @@ func (wm *WebSocketManager) handleJoinRoom(client *WSClient, msg *WSMessage) {
 		})
 		return
 	}
-	result, err := future.Result()
-	if err != nil {
-		log.Printf("加入房间失败: %v", err)
-		wm.sendToClient(client, &WSMessage{
-			Type:    "error",
-			Payload: map[string]string{"message": "加入房间失败"},
-		})
-		return
-	}
 
-	if resp, ok := result.(*gen.ChatJoinRoomResp); ok {
+	if resp, ok := resp.(*gen.ChatJoinRoomResp); ok {
 		if resp.GetCode() == gen.ErrorCode_OK {
 			client.currentRoom = roomID
+
 			wm.sendToClient(client, &WSMessage{
-				Type:    "room_joined",
-				Payload: resp,
+				Type: "room_joined",
+				Payload: map[string]interface{}{
+					"room": resp.GetRoom(),
+				},
 			})
 		} else {
+			log.Printf("加入房间失败: %v", err)
 			wm.sendToClient(client, &WSMessage{
-				Type:    "error",
-				Payload: map[string]string{"message": resp.GetMessage()},
+				Type:    "room_joined",
+				Payload: map[string]string{"message": "加入房间失败"},
 			})
 		}
 	}
@@ -404,15 +444,23 @@ func (wm *WebSocketManager) handleLeaveRoom(client *WSClient) {
 		Username: client.username,
 	}
 
-	_, err := wm.cluster.RequestFuture(client.currentRoom, string(types.Kind_Chat), leaveReq)
-	if err != nil {
-		log.Printf("离开房间请求失败: %v", err)
+	resp, err := global.Rpc(client.currentRoom, string(types.Kind_Chat), "LeaveRoom", leaveReq)
+	if resp, ok := resp.(*gen.ChatLeaveRoomResp); ok {
+		if resp.GetCode() == gen.ErrorCode_OK {
+			client.currentRoom = ""
+			wm.sendToClient(client, &WSMessage{
+				Type:    "room_left",
+				Payload: map[string]string{"message": resp.GetMessage()},
+			})
+		} else {
+			log.Printf("离开房间失败: %v", err)
+		}
+		return
 	}
-	client.currentRoom = ""
 
 	wm.sendToClient(client, &WSMessage{
 		Type:    "room_left",
-		Payload: map[string]string{"message": "离开房间成功"},
+		Payload: map[string]string{"message": "离开房间失败"},
 	})
 }
 
@@ -445,8 +493,8 @@ func (wm *WebSocketManager) handleSendMessage(client *WSClient, msg *WSMessage) 
 		Type:       gen.ChatMsgType_TEXT,
 	}
 
-	future, err := wm.cluster.RequestFuture(client.currentRoom, string(types.Kind_Chat), sendReq)
-	if err != nil {
+	resp, err := global.Rpc(client.currentRoom, string(types.Kind_Chat), "SendMessage", sendReq)
+	if err != nil || resp == nil {
 		log.Printf("发送消息请求失败: %v", err)
 		wm.sendToClient(client, &WSMessage{
 			Type:    "error",
@@ -454,24 +502,26 @@ func (wm *WebSocketManager) handleSendMessage(client *WSClient, msg *WSMessage) 
 		})
 		return
 	}
-	result, err := future.Result()
-	if err != nil {
-		log.Printf("发送消息失败: %v", err)
-		wm.sendToClient(client, &WSMessage{
-			Type:    "error",
-			Payload: map[string]string{"message": "发送消息失败"},
-		})
-		return
-	}
 
-	if resp, ok := result.(*gen.ChatSendMessageResp); ok {
+	if resp, ok := resp.(*gen.ChatSendMessageResp); ok {
 		if resp.GetCode() != gen.ErrorCode_OK {
 			wm.sendToClient(client, &WSMessage{
 				Type:    "error",
 				Payload: map[string]string{"message": resp.GetMessage()},
 			})
+			return
+		} else {
+			wm.sendToClient(client, &WSMessage{
+				Type:    "new_message",
+				Payload: resp.MessageData,
+			})
 		}
+		return
 	}
+	wm.sendToClient(client, &WSMessage{
+		Type:    "error",
+		Payload: map[string]string{"message": "发送消息失败"},
+	})
 }
 
 // handleGetRoomList 处理获取房间列表
@@ -487,16 +537,16 @@ func (wm *WebSocketManager) handleGetRoomList(client *WSClient, msg *WSMessage) 
 	// 从全局房间注册表获取房间列表
 	rooms := grains.GlobalRoomRegistry.GetAllRooms()
 
-	resp := &gen.ChatGetRoomListResp{
-		Code:    gen.ErrorCode_OK,
-		Message: "获取房间列表成功",
-		Rooms:   rooms,
-		Total:   int32(len(rooms)),
-	}
+	// resp := &gen.ChatGetRoomListResp{
+	// 	Code:    gen.ErrorCode_OK,
+	// 	Message: "获取房间列表成功",
+	// 	Rooms:   rooms,
+	// 	Total:   int32(len(rooms)),
+	// }
 
 	wm.sendToClient(client, &WSMessage{
 		Type:    "room_list",
-		Payload: resp,
+		Payload: map[string]interface{}{"rooms": rooms},
 	})
 }
 
@@ -514,8 +564,8 @@ func (wm *WebSocketManager) handleGetRoomUsers(client *WSClient, msg *WSMessage)
 		RoomId: client.currentRoom,
 	}
 
-	future, err := wm.cluster.RequestFuture(client.currentRoom, string(types.Kind_Chat), getRoomUsersReq)
-	if err != nil {
+	resp, err := global.Rpc(client.currentRoom, string(types.Kind_Chat), "GetRoomUsers", getRoomUsersReq)
+	if err != nil || resp == nil {
 		log.Printf("获取房间用户列表请求失败: %v", err)
 		wm.sendToClient(client, &WSMessage{
 			Type:    "error",
@@ -523,22 +573,17 @@ func (wm *WebSocketManager) handleGetRoomUsers(client *WSClient, msg *WSMessage)
 		})
 		return
 	}
-	result, err := future.Result()
-	if err != nil {
-		log.Printf("获取房间用户列表失败: %v", err)
+	if resp, ok := resp.(*gen.ChatGetRoomUsersResp); ok {
 		wm.sendToClient(client, &WSMessage{
-			Type:    "error",
-			Payload: map[string]string{"message": "获取房间用户列表失败"},
+			Type:    "room_users",
+			Payload: map[string]interface{}{"users": resp.GetUsers()},
 		})
 		return
 	}
-
-	if resp, ok := result.(*gen.ChatGetRoomUsersResp); ok {
-		wm.sendToClient(client, &WSMessage{
-			Type:    "room_users",
-			Payload: resp.GetUsers(),
-		})
-	}
+	wm.sendToClient(client, &WSMessage{
+		Type:    "error",
+		Payload: map[string]string{"message": "获取房间用户列表失败"},
+	})
 }
 
 // unregisterClient 注销客户端
@@ -561,7 +606,7 @@ func (wm *WebSocketManager) sendToClient(client *WSClient, msg *WSMessage) {
 		log.Printf("JSON序列化错误: %v", err)
 		return
 	}
-
+	log.Printf("发送消息到客户端: %s", string(data))
 	select {
 	case client.send <- data:
 	default:

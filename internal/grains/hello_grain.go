@@ -26,7 +26,7 @@ func NewHelloGrain() *HelloGrain {
 
 // Init 初始化Grain，由集群框架在激活时调用
 func (g *HelloGrain) Init() {
-	log.Printf("ChatGrain[%s] Init, kind=%s, identity=%s", g.Kind, g.Identity)
+	log.Printf("ChatGrain[%s] Init, kind=%s, identity=%s", g.kind, g.identity)
 }
 
 func (g *HelloGrain) PreStart(ctx actor.Context) {
@@ -50,12 +50,12 @@ func (g *HelloGrain) Receive(ctx actor.Context) {
 		log.Printf("HelloGrain[%s] id=%s, RpcMsg, %s! ,第%d次调用，返回 %s", ctx.Self().Id, ctx.Self().Id, msg.Name, count, response.Data)
 	case actor.Started:
 		// Actor 启动时初始化
-		GlobalRegistry.Register(g.Kind, g.Identity)
-		log.Printf("HelloGrain[%s] id=%s, 启动, identity=%s", ctx.Self().Id, g.Kind, g.Identity)
+		GlobalRegistry.Register(g.kind, g.identity)
+		log.Printf("HelloGrain[%s] id=%s, 启动, identity=%s", ctx.Self().Id, g.kind, g.identity)
 
 	case actor.Stopped:
-		GlobalRegistry.Unregister(g.Kind, g.Identity)
-		log.Printf("HelloGrain[%s] id=%s, 停止, identity=%s", ctx.Self().Id, g.Kind, g.Identity)
+		GlobalRegistry.Unregister(g.kind, g.identity)
+		log.Printf("HelloGrain[%s] id=%s, 停止, identity=%s", ctx.Self().Id, g.kind, g.identity)
 	}
 }
 

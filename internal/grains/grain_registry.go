@@ -109,7 +109,7 @@ func (r *RoomRegistry) RegisterRoom(room *gen.ChatRoomInfo) {
 	defer r.mu.Unlock()
 
 	r.rooms[room.GetRoomId()] = room
-	log.Printf("房间注册: %s (%s), 创建者: %s", room.GetRoomId(), room.GetRoomName(), room.GetCreatorName())
+	log.Printf("房间注册: %+v", room)
 }
 
 // UnregisterRoom 注销一个房间

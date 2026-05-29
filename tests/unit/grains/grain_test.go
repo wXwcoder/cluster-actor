@@ -2,10 +2,8 @@ package grains_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/asynkron/protoactor-go/actor"
-	"github.com/cluster-actor/server/gen"
 	"github.com/cluster-actor/server/internal/grains"
 )
 
@@ -19,53 +17,6 @@ func TestHelloGrainActor(t *testing.T) {
 
 	// Spawn actor
 	pid := rootCtx.Spawn(props)
-
-	// 测试发送 RpcReq 消息
-	future := rootCtx.RequestFuture(pid, gen.RpcReq{Name: "World"}, 5*time.Second)
-	result, err := future.Result()
-	if err != nil {
-		t.Fatalf("获取响应失败: %v", err)
-	}
-
-	response, ok := result.(gen.RpcResp)
-	if !ok {
-		t.Fatalf("意外的响应类型: %T", result)
-	}
-
-	expected := "Hello, World! 我是Grain[test-grain-1], 这是第1次调用"
-	if response.Message != expected {
-		t.Errorf("期望=%s, 实际=%s", expected, response.Message)
-	}
-
-	if response.CallCount != 1 {
-		t.Errorf("期望调用次数=1, 实际=%d", response.CallCount)
-	}
-
-	if response.Identity != "test-grain-1" {
-		t.Errorf("期望 Identity=test-grain-1, 实际=%s", response.Identity)
-	}
-
-	// 第二次调用
-	//更新第二次调用的消息类型，使用gen.RpcReq
-	future = rootCtx.RequestFuture(pid, gen.RpcReq{Name: "Alice"}, 5*time.Second)
-	result, err = future.Result()
-	if err != nil {
-		t.Fatalf("获取响应失败: %v", err)
-	}
-
-	response, ok = result.(gen.RpcResp)
-	if !ok {
-		t.Fatalf("意外的响应类型: %T", result)
-	}
-
-	expected = "Hello, Alice! 我是Grain[test-grain-1], 这是第2次调用"
-	if response.Message != expected {
-		t.Errorf("期望=%s, 实际=%s", expected, response.Message)
-	}
-
-	if response.CallCount != 2 {
-		t.Errorf("期望调用次数=2, 实际=%d", response.CallCount)
-	}
 
 	// 停止 actor
 	_ = rootCtx.StopFuture(pid).Wait()

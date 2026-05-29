@@ -20,12 +20,20 @@ type FMsgHandler = func(ctx actor.Context, in *gen.RpcMsg) (proto.Message, gen.E
 
 // BaseGrain 基于 protoactor-go 的 Hello Actor 实现
 type BaseGrain struct {
-	Kind      string
-	Identity  string
+	kind      string
+	identity  string
 	Cluster   *cluster.Cluster
 	CallCount int64
 	IsActive  bool
 	MsgFunc   map[gen.MsgId]FMsgHandler
+}
+
+func (g *BaseGrain) GetKind() string {
+	return g.kind
+}
+
+func (g *BaseGrain) GetIdentity() string {
+	return g.identity
 }
 
 func (g *BaseGrain) RegisterMsgHandler(messageId gen.MsgId, handler FMsgHandler) {
@@ -44,13 +52,13 @@ func (g *BaseGrain) RegisterMsgHandler(messageId gen.MsgId, handler FMsgHandler)
 func (g *BaseGrain) PreStart(ctx actor.Context) {
 	ci := cluster.GetClusterIdentity(ctx)
 	if ci != nil {
-		g.Kind = ci.Kind
-		g.Identity = ci.Identity
+		g.kind = ci.Kind
+		g.identity = ci.Identity
 		// 注册到全局Grain注册表
-		GlobalRegistry.Register(g.Kind, g.Identity)
-		log.Printf("BaseGrain[%s] id=%s, RpcReq, identity=%s", ctx.Self().Id, g.Kind, g.Identity)
+		GlobalRegistry.Register(g.kind, g.identity)
+		log.Printf("BaseGrain[%s] id=%s, RpcReq, identity=%s", ctx.Self().Id, g.kind, g.identity)
 	} else {
-		log.Printf("BaseGrain[%s] id=%s, RpcReq, 但未获取到ClusterIdentity", ctx.Self().Id, g.Kind)
+		log.Printf("BaseGrain[%s] id=%s, RpcReq, 但未获取到ClusterIdentity", ctx.Self().Id, g.kind)
 	}
 	g.IsActive = true
 }
@@ -80,7 +88,7 @@ func (g *BaseGrain) OnReceive(ctx actor.Context) *gen.RpcMsg {
 		if ok {
 			msgName = reqName
 		}
-		log.Printf("BaseActor OnReceive0 identity:%s kind:%s name:%s msgName:%s msgId:%d code:%d", g.Identity, g.Kind, msg.Name, reqName, msg.MsgId, msg.Code)
+		log.Printf("BaseActor OnReceive0 identity:%s kind:%s name:%s msgName:%s msgId:%d code:%d", g.identity, g.kind, msg.Name, reqName, msg.MsgId, msg.Code)
 		handler, ok := g.MsgFunc[gen.MsgId(msg.MsgId)]
 		if ok {
 			resp, errCode := handler(ctx, msg)
@@ -102,12 +110,12 @@ func (g *BaseGrain) OnReceive(ctx actor.Context) *gen.RpcMsg {
 		} else {
 			msg.Code = int32(gen.ErrorCode_UnknownMsgId)
 		}
-		log.Printf("BaseActor OnReceive1 identity:%s kind:%s name:%s msgName:%s msgId:%d code:%d", g.Identity, g.Kind, msg.Name, msgName, msg.MsgId, msg.Code)
+		log.Printf("BaseActor OnReceive1 identity:%s kind:%s name:%s msgName:%s msgId:%d code:%d", g.identity, g.kind, msg.Name, msgName, msg.MsgId, msg.Code)
 		return msg
 	default:
 		return &gen.RpcMsg{
-			Kind:     g.Kind,
-			Identity: g.Identity,
+			Kind:     g.kind,
+			Identity: g.identity,
 			Code:     int32(gen.ErrorCode_UnknownMsgId),
 		}
 	}

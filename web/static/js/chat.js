@@ -140,6 +140,7 @@ class ChatApp {
     onWebSocketMessage(event) {
         try {
             const message = JSON.parse(event.data);
+            console.log('收到消息:', message);
             this.handleMessage(message);
         } catch (error) {
             console.error('消息解析失败:', error);
@@ -266,25 +267,43 @@ class ChatApp {
      */
     onRoomList(data) {
         console.log('收到房间列表:', data);
-        this.rooms = data.rooms || [];
+        // 后端直接返回数组，而不是 {rooms: []} 对象
+        const roomList = Array.isArray(data) ? data : (data.rooms || []);
+        // 将后端返回的 PascalCase 字段转换为前端期望的 camelCase 格式
+        this.rooms = roomList.map(room => ({
+            room_id: room.RoomId || room.room_id,
+            room_name: room.RoomName || room.room_name,
+            creator_id: room.CreatorId || room.creator_id,
+            creator_name: room.CreatorName || room.creator_name,
+            max_members: room.MaxMembers || room.max_members,
+            current_members: room.CurrentMembers || room.current_members || 0,
+            created_at: room.CreatedAt || room.created_at
+        }));
         this.renderRoomList();
     }
     
     /**
      * 收到房间用户列表
      */
-    onRoomUsers(users) {
-        console.log('收到房间用户列表:', users);
-        this.roomUsers = users || [];
+    onRoomUsers(data) {
+        console.log('收到房间用户列表:', data.users);
+        // 后端直接返回数组，而不是 {users: []} 对象
+        const userList = Array.isArray(data) ? data : (data.users || []);
+        // 将后端返回的 PascalCase 字段转换为前端期望的 camelCase 格式
+        this.roomUsers = userList.map(user => ({
+            UserId: user.UserId || user.user_id,
+            UserName: user.UserName || user.user_name || user.UserId.toString(),
+            Avatar: user.Avatar || user.avatar || '',
+        }));
         this.renderUserList();
     }
     
     /**
      * 收到新消息
      */
-    onNewMessage(message) {
-        console.log('收到新消息:', message);
-        this.addMessage(message);
+    onNewMessage(payload) {
+        console.log('收到新消息:', payload);
+        this.addMessage(payload);
     }
     
     /**
@@ -292,7 +311,7 @@ class ChatApp {
      */
     onError(payload) {
         console.error('错误:', payload.message);
-        alert('错误: ' + payload.message);
+        alert('错误: ' + payload);
     }
     
     /**
@@ -505,10 +524,11 @@ class ChatApp {
      * 更新聊天头部
      */
     updateChatHeader() {
+        console.log("updateChatHeader", this.currentRoom);
         if (this.currentRoom) {
-            this.elements.currentRoomName.textContent = this.currentRoom.room_name;
+            this.elements.currentRoomName.textContent = this.currentRoom.RoomName;
             this.elements.roomUserCount.textContent = 
-                `${this.currentRoom.current_members}/${this.currentRoom.max_members} 人`;
+                `${this.currentRoom.CurrentMembers}/${this.currentRoom.MaxMembers} 人`;
         } else {
             this.elements.currentRoomName.textContent = '选择一个房间';
             this.elements.roomUserCount.textContent = '';
@@ -540,20 +560,21 @@ class ChatApp {
      * 渲染消息
      */
     renderMessage(message) {
+        console.log("renderMessage", message);
         const messageEl = document.createElement('div');
         
         // 判断消息类型
-        if (message.type === 3 || message.type === 4) {
+        if (message.Type === 3 || message.Type === 4) {
             // 系统消息（加入/离开）
             messageEl.className = 'message system';
-            messageEl.textContent = message.content;
-        } else if (message.sender_id == this.userId) {
+            messageEl.textContent = message.Content;
+        } else if (message.SenderId == this.userId) {
             // 自己发送的消息
             messageEl.className = 'message sent';
             messageEl.innerHTML = `
-                <div class="message-content">${this.escapeHtml(message.content)}</div>
+                <div class="message-content">${this.escapeHtml(message.Content)}</div>
                 <div class="message-header">
-                    <span class="message-time">${this.formatTime(message.timestamp)}</span>
+                    <span class="message-time">${this.formatTime(message.Timestamp)}</span>
                 </div>
             `;
         } else {
@@ -561,10 +582,10 @@ class ChatApp {
             messageEl.className = 'message received';
             messageEl.innerHTML = `
                 <div class="message-header">
-                    <span class="message-sender">${this.escapeHtml(message.sender_name)}</span>
-                    <span class="message-time">${this.formatTime(message.timestamp)}</span>
+                    <span class="message-sender">${this.escapeHtml(message.SenderName)}</span>
+                    <span class="message-time">${this.formatTime(message.Timestamp)}</span>
                 </div>
-                <div class="message-content">${this.escapeHtml(message.content)}</div>
+                <div class="message-content">${this.escapeHtml(message.Content)}</div>
             `;
         }
         
@@ -590,16 +611,17 @@ class ChatApp {
         }
         
         this.roomUsers.forEach(user => {
+            console.log(user);
             const userEl = document.createElement('div');
             userEl.className = 'user-item';
             
             const avatar = document.createElement('div');
             avatar.className = 'user-avatar';
-            avatar.textContent = user.username.charAt(0).toUpperCase();
+            avatar.textContent = user.UserName.charAt(0).toUpperCase();
             
             const name = document.createElement('div');
             name.className = 'user-name';
-            name.textContent = user.username;
+            name.textContent = user.UserName;
             
             userEl.appendChild(avatar);
             userEl.appendChild(name);

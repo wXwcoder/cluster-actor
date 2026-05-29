@@ -10,6 +10,6 @@ import (
 // Grain 的 identity 由 protoactor 集群框架在激活时自动设置
 func NewHelloGrainProps(identity string) *actor.Props {
 	return actor.PropsFromProducer(func() actor.Actor {
-		return &HelloGrain{BaseGrain{Identity: identity}}
+		return &HelloGrain{BaseGrain{identity: identity}}
 	})
 }
