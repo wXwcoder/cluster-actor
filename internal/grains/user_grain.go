@@ -32,7 +32,7 @@ type UserGrain struct {
 }
 
 func NewUserGrain() *UserGrain {
-	actor := &UserGrain{}
+	actor := &UserGrain{BaseGrain: BaseGrain{}}
 	if actor == nil {
 		log.Fatalf("Failed to create actor")
 	}

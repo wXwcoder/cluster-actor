@@ -25,17 +25,6 @@ type WSMessage struct {
 	Payload interface{} `json:"payload,omitempty"`
 }
 
-// WSClient WebSocket客户端连接
-type WSClient struct {
-	conn        *websocket.Conn
-	userID      int64
-	username    string
-	sessionID   string
-	currentRoom string
-	send        chan []byte
-	mu          sync.Mutex
-}
-
 // WebSocketManager WebSocket连接管理器
 type WebSocketManager struct {
 	cluster   *cluster.Cluster
@@ -67,10 +56,7 @@ func (wm *WebSocketManager) HandleWebSocket(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	client := &WSClient{
-		conn: conn,
-		send: make(chan []byte, 256),
-	}
+	client := NewWSClient(wm.cluster, conn)
 
 	go wm.readPump(client)
 	go wm.writePump(client)
@@ -249,8 +235,10 @@ func (wm *WebSocketManager) handleLogin(client *WSClient, msg *WSMessage) {
 	// 	return
 	// }
 
+	log.Printf("登录响应: userID:%d %v", userID, resp)
 	if resp, ok := resp.(*gen.ChatLoginResp); ok {
 		if resp.GetCode() == gen.ErrorCode_OK {
+			// 登录成功，返回用户信息
 			wm.sendToClient(client, &WSMessage{
 				Type:    "login_success",
 				Payload: resp.GetUser(),
@@ -414,8 +402,9 @@ func (wm *WebSocketManager) handleJoinRoom(client *WSClient, msg *WSMessage) {
 
 	if resp, ok := resp.(*gen.ChatJoinRoomResp); ok {
 		if resp.GetCode() == gen.ErrorCode_OK {
+			// 加入房间成功, 订阅当前房间
 			client.currentRoom = roomID
-
+			client.SubscribeTopic(roomID)
 			wm.sendToClient(client, &WSMessage{
 				Type: "room_joined",
 				Payload: map[string]interface{}{

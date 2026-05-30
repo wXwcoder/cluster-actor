@@ -10,7 +10,6 @@ import (
 	"github.com/asynkron/protoactor-go/actor"
 	"github.com/asynkron/protoactor-go/cluster"
 	"github.com/cluster-actor/server/gen"
-	"github.com/cluster-actor/server/pkg/types"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -30,9 +29,9 @@ type ChatGrain struct {
 }
 
 func NewChatGrain() *ChatGrain {
-	actor := &ChatGrain{}
+	actor := &ChatGrain{BaseGrain: BaseGrain{}}
 	if actor == nil {
-		log.Fatalf("Failed to create actor")
+		log.Fatalf("Failed to create chat grain")
 	}
 	actor.Init()
 	return actor
@@ -217,6 +216,11 @@ func (g *ChatGrain) ChatSendMessageReq(ctx actor.Context, in *gen.RpcMsg) (proto
 	// 添加到消息历史
 	g.messages = append(g.messages, chatMsg)
 
+	// 发送消息给所有用户
+	g.broadcastToMembers(ctx, &gen.ChatUserMessage{
+		Message: chatMsg,
+	}, 0)
+
 	// 保留最近100条消息
 	if len(g.messages) > 100 {
 		g.messages = g.messages[len(g.messages)-100:]
@@ -229,7 +233,6 @@ func (g *ChatGrain) ChatSendMessageReq(ctx actor.Context, in *gen.RpcMsg) (proto
 
 	// 广播消息给房间内所有用户
 	//g.broadcastToMembers(ctx, chatMsg, 0)
-
 	response := &gen.ChatSendMessageResp{
 		Code:        gen.ErrorCode_OK,
 		Message:     "消息发送成功",
@@ -439,24 +442,11 @@ func (g *ChatGrain) Receive(ctx actor.Context) {
 }
 
 // broadcastToMembers 广播消息给房间内所有用户（排除指定用户）
-func (g *ChatGrain) broadcastToMembers(ctx actor.Context, message *gen.ChatMessage, excludeUserId int64) {
-	g.mu.RLock()
-	memberIds := make([]int64, 0, len(g.members))
-	for userId := range g.members {
-		if userId != excludeUserId {
-			memberIds = append(memberIds, userId)
-		}
-	}
-	g.mu.RUnlock()
-
-	// 向每个用户发送消息
-	for _, userId := range memberIds {
-		userIdentity := getUserIdentity(userId)
-		userMsg := &gen.ChatUserMessage{
-			Message: message,
-		}
-		// 使用RequestFuture发送消息到UserGrain
-		g.cluster.RequestFuture(userIdentity, string(types.Kind_User), userMsg)
+func (g *ChatGrain) broadcastToMembers(ctx actor.Context, message *gen.ChatUserMessage, excludeUserId int64) {
+	// 发布消息到房间
+	if err := G.Publish(g.identity, message); err != nil {
+		log.Printf("ChatGrain[%s] 发布消息到房间失败: %v", g.identity, err)
+		return
 	}
 }
 

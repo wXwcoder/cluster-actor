@@ -73,7 +73,6 @@ func NewServer(cfg *config.ClusterConfig) (*Server, error) {
 	// 3. 初始化全局注册表
 	global.G.Cfg = cfg
 	global.G.Cluster = c
-
 	return srv, nil
 }
 

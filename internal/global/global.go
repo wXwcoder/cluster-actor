@@ -1,6 +1,7 @@
 package global
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -19,6 +20,34 @@ type GlobalRegistry struct {
 }
 
 var G = &GlobalRegistry{}
+
+func (g *GlobalRegistry) Publish(topic string, req proto.Message) error {
+	// 发布消息到房间
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	rpcMsg, err := G.NewRpcMsg(topic, topic, "broadcast", req)
+	if err != nil {
+		log.Printf("ChatGrain[%s] 发布消息到房间失败: %v", topic, err)
+		return err
+	}
+	g.Cluster.Publisher().Publish(timeoutCtx, topic, rpcMsg)
+	return nil
+}
+
+func (g *GlobalRegistry) NewRpcMsg(identity string, kind string, name string, req proto.Message) (*gen.RpcMsg, error) {
+	msgName := req.ProtoReflect().Descriptor().Name()
+	msgId, ok := gen.MsgId_value["P"+string(msgName)]
+	if !ok || msgId == 0 {
+		return nil, fmt.Errorf("未知的消息类型: %s", msgName)
+	}
+	data, err := proto.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("序列化请求失败: %v", err)
+	}
+	log.Printf("Init identity:%s kind:%s name:%s msgName:%s msgId:%d req:%+v", identity, kind, name, msgName, msgId, req)
+	return &gen.RpcMsg{Kind: kind, Identity: identity, Name: name, MsgId: msgId, Data: data}, nil
+}
 
 func Rpc(identity string, kind string, name string, req proto.Message) (proto.Message, error) {
 	if identity == "" || kind == "" || name == "" {

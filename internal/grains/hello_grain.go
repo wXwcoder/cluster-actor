@@ -16,7 +16,7 @@ type HelloGrain struct {
 }
 
 func NewHelloGrain() *HelloGrain {
-	actor := &HelloGrain{}
+	actor := &HelloGrain{BaseGrain: BaseGrain{}}
 	if actor == nil {
 		log.Fatalf("Failed to create actor")
 	}
