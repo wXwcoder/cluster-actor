@@ -11,6 +11,8 @@ consul:
   address: "127.0.0.1:8500"
   scheme: "http"
   datacenter: "dc1"
+  token: ""
+  cache_prefix: "g"
   ttl_heartbeat_interval: 10
   deregister_critical_service_after: 30
 

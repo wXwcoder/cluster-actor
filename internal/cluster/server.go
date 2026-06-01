@@ -15,6 +15,7 @@ import (
 	"github.com/cluster-actor/server/internal/config"
 	"github.com/cluster-actor/server/internal/global"
 	"github.com/cluster-actor/server/internal/grains"
+	"github.com/cluster-actor/server/internal/kvstore"
 	"github.com/cluster-actor/server/pkg/types"
 )
 
@@ -23,6 +24,7 @@ type Server struct {
 	cfg         *config.ClusterConfig
 	actorSystem *actor.ActorSystem
 	cluster     *cluster.Cluster
+	kvStore     *kvstore.KVStore
 	httpServer  *http.Server
 	stopCh      chan struct{}
 	isRunning   bool
@@ -63,14 +65,21 @@ func NewServer(cfg *config.ClusterConfig) (*Server, error) {
 	// 创建 Cluster 实例
 	c := cluster.New(system, clusterConfig)
 
+	// 创建分布式KV存储
+	kv, err := kvstore.NewKVStore(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("创建KVStore失败: %w", err)
+	}
+
 	srv := &Server{
 		cfg:         cfg,
 		actorSystem: system,
 		cluster:     c,
+		kvStore:     kv,
 		stopCh:      make(chan struct{}),
 	}
 
-	// 3. 初始化全局注册表
+	// 初始化全局注册表
 	global.G.Cfg = cfg
 	global.G.Cluster = c
 	return srv, nil
@@ -88,6 +97,11 @@ func (s *Server) Start(ctx context.Context) error {
 	// 启动集群成员
 	s.cluster.StartMember()
 
+	// 启动分布式KV存储的Watch监听
+	if err := s.kvStore.Start(); err != nil {
+		log.Printf("启动KVStore失败: %v", err)
+	}
+
 	s.isRunning = true
 	log.Printf("集群服务器已启动: %s (地址: %s:%d, gRPC端口: %d)",
 		s.cfg.NodeName, s.cfg.Host, s.cfg.HealthCheckPort, s.cfg.Port)
@@ -102,6 +116,11 @@ func (s *Server) Stop(ctx context.Context) error {
 
 	if !s.isRunning {
 		return nil
+	}
+
+	// 停止分布式KV存储的Watch监听
+	if err := s.kvStore.Stop(); err != nil {
+		log.Printf("停止KVStore失败: %v", err)
 	}
 
 	// 停止 HTTP 服务器
@@ -139,6 +158,11 @@ func (s *Server) GetRootContext() *actor.RootContext {
 // GetConfig 获取服务器配置
 func (s *Server) GetConfig() *config.ClusterConfig {
 	return s.cfg
+}
+
+// GetKVStore 获取分布式KV存储实例
+func (s *Server) GetKVStore() *kvstore.KVStore {
+	return s.kvStore
 }
 
 // IsRunning 检查服务器是否在运行

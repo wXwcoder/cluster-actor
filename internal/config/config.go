@@ -61,6 +61,9 @@ type ConsulConfig struct {
 	// Datacenter 数据中心名称
 	Datacenter string `yaml:"datacenter" json:"datacenter"`
 
+	// CachePrefix 缓存前缀
+	CachePrefix string `yaml:"cache_prefix" json:"cache_prefix"`
+
 	// TTLHeartbeatInterval TTL心跳间隔（秒）
 	TTLHeartbeatInterval int `yaml:"ttl_heartbeat_interval" json:"ttl_heartbeat_interval"`
 
