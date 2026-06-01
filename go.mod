@@ -3,6 +3,7 @@ module github.com/cluster-actor/server
 go 1.26
 
 require (
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.1
 	github.com/asynkron/protoactor-go v0.0.0-20260118094027-288962e52f3f
 	github.com/bytedance/gopkg v0.1.3
 	github.com/gin-gonic/gin v1.12.0
@@ -11,6 +12,10 @@ require (
 	github.com/oklog/ulid/v2 v2.1.1
 	github.com/uber/jaeger-client-go v2.30.0+incompatible
 	github.com/uber/jaeger-lib v2.4.1+incompatible
+	go.opentelemetry.io/otel v1.44.0
+	go.opentelemetry.io/otel/exporters/zipkin v1.44.0
+	go.opentelemetry.io/otel/sdk v1.44.0
+	go.opentelemetry.io/otel/trace v1.44.0
 	google.golang.org/protobuf v1.36.10
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -77,21 +82,17 @@ require (
 	github.com/ugorji/go/codec v1.3.1 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/otel v1.44.0 // indirect
 	go.opentelemetry.io/otel/exporters/prometheus v0.60.0 // indirect
-	go.opentelemetry.io/otel/exporters/zipkin v1.44.0 // indirect
 	go.opentelemetry.io/otel/metric v1.44.0 // indirect
-	go.opentelemetry.io/otel/sdk v1.44.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.44.0 // indirect
-	go.opentelemetry.io/otel/trace v1.44.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/arch v0.22.0 // indirect
-	golang.org/x/crypto v0.48.0 // indirect
+	golang.org/x/crypto v0.50.0 // indirect
 	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa // indirect
-	golang.org/x/net v0.51.0 // indirect
+	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/sys v0.45.0 // indirect
-	golang.org/x/text v0.34.0 // indirect
+	golang.org/x/text v0.36.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251022142026-3a174f9686a8 // indirect
 	google.golang.org/grpc v1.77.0 // indirect
 )

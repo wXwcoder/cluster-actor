@@ -8,8 +8,9 @@ option go_package = "github.com/cluster-actor/server/gen";
 message RpcMsg {
   string Kind = 1;
   string Identity = 2;
-  string Name = 3;
-  int32 Code = 4;
-  int32 MsgId = 5;
-  bytes Data = 6;
+  string TraceID = 3;
+  string Name = 4;
+  int32 Code = 5;
+  int32 MsgId = 6;
+  bytes Data = 7;
 }

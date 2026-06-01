@@ -9,6 +9,9 @@ import (
 	"github.com/asynkron/protoactor-go/cluster"
 	"github.com/cluster-actor/server/gen"
 	"github.com/cluster-actor/server/internal/config"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
@@ -102,6 +105,24 @@ func RequestFuture(req *gen.RpcMsg) (*gen.RpcMsg, error) {
 
 	log.Printf("RequestFuture: %+v", req)
 
+	// 创建 OpenTelemetry span 用于追踪 RPC 调用
+	// 使用 context.Background() 并设置自定义 TraceID
+	tracer := otel.Tracer("grpc-request")
+	_, span := tracer.Start(context.Background(), "Cluster.RequestFuture",
+		trace.WithAttributes(
+			attribute.String("grpc.request.name", name),
+			attribute.String("grpc.request.kind", req.Kind),
+			attribute.String("grpc.request.identity", req.Identity),
+			attribute.String("grpc.request.msg_name", req.Name),
+		),
+	)
+	defer span.End()
+
+	// 将 TraceID 注入到消息中，以便远端 Grain 可以关联追踪
+	req.TraceID = span.SpanContext().TraceID().String()
+	span.SetAttributes(attribute.String("trace.id", req.TraceID))
+	log.Printf("Sending message with TraceID: %s", req.TraceID)
+
 	// 通过 cluster.RequestFuture 发送请求到 Grain
 	// 框架使用 DistHash 算法计算目标节点：
 	// - 如果目标节点是当前节点，本地激活
@@ -110,18 +131,27 @@ func RequestFuture(req *gen.RpcMsg) (*gen.RpcMsg, error) {
 	// 参数顺序: identity, kind, message
 	future, err := G.Cluster.RequestFuture(req.Identity, req.Kind, req, cluster.WithTimeout(time.Second*5))
 	if err != nil {
+		span.RecordError(err)
+		span.SetAttributes(attribute.String("error", "request_future_error"))
 		return nil, fmt.Errorf("获取Grain失败: %v", err)
 	}
 
 	var result interface{}
 	result, err = future.Result()
 	if err != nil {
+		span.RecordError(err)
+		span.SetAttributes(attribute.String("error", "future_result_error"))
 		return nil, fmt.Errorf("调用Grain失败: %v", err)
 	}
 
 	log.Printf("RequestFuture: %+v", result.(*gen.RpcMsg))
 	// 处理响应（proto 消息为指针类型）
 	if resp, ok := result.(*gen.RpcMsg); ok {
+		// 记录响应信息到 span
+		span.SetAttributes(
+			attribute.Int("response.code", int(resp.Code)),
+			attribute.String("response.trace_id", resp.TraceID),
+		)
 		return resp, nil
 	} else {
 		return nil, fmt.Errorf("未知的响应类型: %T", result)

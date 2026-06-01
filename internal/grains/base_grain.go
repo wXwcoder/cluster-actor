@@ -2,6 +2,7 @@
 package grains
 
 import (
+	"context"
 	"log"
 	"sync/atomic"
 
@@ -9,6 +10,9 @@ import (
 	"github.com/asynkron/protoactor-go/cluster"
 	"github.com/bytedance/gopkg/util/logger"
 	"github.com/cluster-actor/server/gen"
+	"github.com/cluster-actor/server/internal/telemetry"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -88,7 +92,42 @@ func (g *BaseGrain) OnReceive(ctx actor.Context) *gen.RpcMsg {
 		if ok {
 			msgName = reqName
 		}
-		log.Printf("BaseActor OnReceive0 identity:%s kind:%s name:%s msgName:%s msgId:%d code:%d", g.identity, g.kind, msg.Name, reqName, msg.MsgId, msg.Code)
+		log.Printf("BaseActor OnReceive0 identity:%s kind:%s name:%s msgName:%s msgId:%d code:%d traceID:%s",
+			g.identity, g.kind, msg.Name, reqName, msg.MsgId, msg.Code, msg.TraceID)
+
+		// 使用 OpenTelemetry 创建新的 Span
+		tracer := telemetry.GetTracer(g.kind)
+		var spanOpts []trace.SpanStartOption
+
+		// 如果有上游 TraceID，创建 Link 关联分布式追踪链路
+		if msg.TraceID != "" {
+			if parsedTraceID, err := trace.TraceIDFromHex(msg.TraceID); err == nil {
+				// 创建 SpanContext 并构建 Link
+				linkCtx := trace.NewSpanContext(trace.SpanContextConfig{
+					TraceID: parsedTraceID,
+				})
+				link := trace.Link{
+					SpanContext: linkCtx,
+					Attributes: []attribute.KeyValue{
+						attribute.String("link.type", "upstream_trace"),
+					},
+				}
+				spanOpts = append(spanOpts, trace.WithLinks(link))
+			}
+		}
+
+		spanOpts = append(spanOpts, trace.WithAttributes(
+			attribute.String("grain.kind", g.kind),
+			attribute.String("grain.identity", g.identity),
+			attribute.String("msg.name", msg.Name),
+			attribute.String("msg.type", msgName),
+			attribute.Int64("msg.id", int64(msg.MsgId)),
+			attribute.String("related_trace_id", msg.TraceID),
+		))
+
+		_, span := tracer.Start(context.Background(), "Grain.OnReceive", spanOpts...)
+		defer span.End()
+
 		handler, ok := g.MsgFunc[gen.MsgId(msg.MsgId)]
 		if ok {
 			resp, errCode := handler(ctx, msg)
@@ -97,20 +136,25 @@ func (g *BaseGrain) OnReceive(ctx actor.Context) *gen.RpcMsg {
 				msgId, ok := gen.MsgId_value["P"+msgName]
 				if !ok || msgId == 0 {
 					msg.Code = int32(gen.ErrorCode_SerializeError)
+					span.SetAttributes(attribute.String("error", "unknown_response_msg_id"))
 				}
 				msg.MsgId = msgId
 				b, err := proto.Marshal(resp)
 				if err != nil {
 					msg.Code = int32(gen.ErrorCode_SerializeError)
+					span.SetAttributes(attribute.String("error", "serialize_error"))
 				} else {
 					msg.Data = b
 				}
 			}
 			msg.Code = int32(errCode)
+			span.SetAttributes(attribute.Int("response.code", int(msg.Code)))
 		} else {
 			msg.Code = int32(gen.ErrorCode_UnknownMsgId)
+			span.SetAttributes(attribute.String("error", "unknown_msg_id"))
 		}
-		log.Printf("BaseActor OnReceive1 identity:%s kind:%s name:%s msgName:%s msgId:%d code:%d", g.identity, g.kind, msg.Name, msgName, msg.MsgId, msg.Code)
+		log.Printf("BaseActor OnReceive1 identity:%s kind:%s name:%s msgName:%s msgId:%d code:%d traceID:%s",
+			g.identity, g.kind, msg.Name, msgName, msg.MsgId, msg.Code, msg.TraceID)
 		return msg
 	default:
 		return &gen.RpcMsg{

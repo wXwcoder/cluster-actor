@@ -26,10 +26,11 @@ type RpcMsg struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Kind          string                 `protobuf:"bytes,1,opt,name=Kind,proto3" json:"Kind,omitempty"`
 	Identity      string                 `protobuf:"bytes,2,opt,name=Identity,proto3" json:"Identity,omitempty"`
-	Name          string                 `protobuf:"bytes,3,opt,name=Name,proto3" json:"Name,omitempty"`
-	Code          int32                  `protobuf:"varint,4,opt,name=Code,proto3" json:"Code,omitempty"`
-	MsgId         int32                  `protobuf:"varint,5,opt,name=MsgId,proto3" json:"MsgId,omitempty"`
-	Data          []byte                 `protobuf:"bytes,6,opt,name=Data,proto3" json:"Data,omitempty"`
+	TraceID       string                 `protobuf:"bytes,3,opt,name=TraceID,proto3" json:"TraceID,omitempty"`
+	Name          string                 `protobuf:"bytes,4,opt,name=Name,proto3" json:"Name,omitempty"`
+	Code          int32                  `protobuf:"varint,5,opt,name=Code,proto3" json:"Code,omitempty"`
+	MsgId         int32                  `protobuf:"varint,6,opt,name=MsgId,proto3" json:"MsgId,omitempty"`
+	Data          []byte                 `protobuf:"bytes,7,opt,name=Data,proto3" json:"Data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -78,6 +79,13 @@ func (x *RpcMsg) GetIdentity() string {
 	return ""
 }
 
+func (x *RpcMsg) GetTraceID() string {
+	if x != nil {
+		return x.TraceID
+	}
+	return ""
+}
+
 func (x *RpcMsg) GetName() string {
 	if x != nil {
 		return x.Name
@@ -111,14 +119,15 @@ var File_base_proto protoreflect.FileDescriptor
 const file_base_proto_rawDesc = "" +
 	"\n" +
 	"\n" +
-	"base.proto\"\x8a\x01\n" +
+	"base.proto\"\xa4\x01\n" +
 	"\x06RpcMsg\x12\x12\n" +
 	"\x04Kind\x18\x01 \x01(\tR\x04Kind\x12\x1a\n" +
-	"\bIdentity\x18\x02 \x01(\tR\bIdentity\x12\x12\n" +
-	"\x04Name\x18\x03 \x01(\tR\x04Name\x12\x12\n" +
-	"\x04Code\x18\x04 \x01(\x05R\x04Code\x12\x14\n" +
-	"\x05MsgId\x18\x05 \x01(\x05R\x05MsgId\x12\x12\n" +
-	"\x04Data\x18\x06 \x01(\fR\x04DataB%Z#github.com/cluster-actor/server/genb\x06proto3"
+	"\bIdentity\x18\x02 \x01(\tR\bIdentity\x12\x18\n" +
+	"\aTraceID\x18\x03 \x01(\tR\aTraceID\x12\x12\n" +
+	"\x04Name\x18\x04 \x01(\tR\x04Name\x12\x12\n" +
+	"\x04Code\x18\x05 \x01(\x05R\x04Code\x12\x14\n" +
+	"\x05MsgId\x18\x06 \x01(\x05R\x05MsgId\x12\x12\n" +
+	"\x04Data\x18\a \x01(\fR\x04DataB%Z#github.com/cluster-actor/server/genb\x06proto3"
 
 var (
 	file_base_proto_rawDescOnce sync.Once
