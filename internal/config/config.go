@@ -25,6 +25,9 @@ type ClusterConfig struct {
 
 	// HealthCheckPort 健康检查端口
 	HealthCheckPort int `yaml:"health_check_port" json:"health_check_port"`
+
+	// Tracing 链路追踪配置
+	Tracing TracingConfig `yaml:"tracing" json:"tracing"`
 }
 
 // GetClusterName 获取集群名称
@@ -84,4 +87,19 @@ type ActorConfig struct {
 
 	// RemoteCallTimeout 远程调用超时时间（毫秒）
 	RemoteCallTimeout int `yaml:"remote_call_timeout" json:"remote_call_timeout"`
+}
+
+// TracingConfig 链路追踪配置
+type TracingConfig struct {
+	// Enabled 是否启用链路追踪
+	Enabled bool `yaml:"enabled" json:"enabled"`
+
+	// Type 追踪类型 (zipkin, jaeger)
+	Type string `yaml:"type" json:"type"`
+
+	// Endpoint 追踪服务器地址
+	Endpoint string `yaml:"endpoint" json:"endpoint"`
+
+	// SampleRatio 采样率 (0.0-1.0)
+	SampleRatio float64 `yaml:"sample_ratio" json:"sample_ratio"`
 }

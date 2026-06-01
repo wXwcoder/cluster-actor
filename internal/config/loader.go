@@ -115,6 +115,18 @@ func setDefaults(cfg *ClusterConfig) {
 	if cfg.HealthCheckPort == 0 {
 		cfg.HealthCheckPort = cfg.Port + 100
 	}
+	if !cfg.Tracing.Enabled {
+		cfg.Tracing.Enabled = false
+	}
+	if cfg.Tracing.Type == "" {
+		cfg.Tracing.Type = "zipkin"
+	}
+	if cfg.Tracing.Endpoint == "" {
+		cfg.Tracing.Endpoint = "http://localhost:9411/api/v2/spans"
+	}
+	if cfg.Tracing.SampleRatio <= 0 || cfg.Tracing.SampleRatio > 1 {
+		cfg.Tracing.SampleRatio = 1.0
+	}
 }
 
 // validate 验证配置合法性

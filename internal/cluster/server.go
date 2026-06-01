@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/asynkron/protoactor-go/actor"
+	"github.com/asynkron/protoactor-go/actor/middleware/opentelemetry"
 	"github.com/asynkron/protoactor-go/cluster"
 	"github.com/asynkron/protoactor-go/cluster/clusterproviders/consul"
 	"github.com/asynkron/protoactor-go/cluster/identitylookup/disthash"
@@ -34,8 +35,8 @@ type Server struct {
 // NewServer 创建集群服务器
 func NewServer(cfg *config.ClusterConfig) (*Server, error) {
 	// 创建 ActorSystem
-	system := actor.NewActorSystem()
-
+	system := actor.NewActorSystem(actor.WithDefaultPrometheusProvider(cfg.Port + 10000))
+	system.Root.WithSpawnMiddleware(opentelemetry.TracingMiddleware())
 	// 创建 Consul Provider
 	provider, err := consul.New()
 	if err != nil {
@@ -48,16 +49,19 @@ func NewServer(cfg *config.ClusterConfig) (*Server, error) {
 	// 配置 Remote（gRPC 通信）
 	remoteConfig := remote.Configure(cfg.Host, cfg.Port)
 
-	// 创建 HelloGrain 的 Kind 配置
+	// 创建 Grain Kind 配置（带 OpenTelemetry 中间件）
+	// TracingMiddleware 是 SpawnMiddleware，会自动配置 SenderMiddleware 和 ReceiverMiddleware
 	helloKind := cluster.NewKind(string(types.Kind_Hello), actor.PropsFromProducer(func() actor.Actor {
 		return grains.NewHelloGrain()
-	}))
+	}).Configure(actor.WithSpawnMiddleware(opentelemetry.TracingMiddleware())))
+
 	userKind := cluster.NewKind(string(types.Kind_User), actor.PropsFromProducer(func() actor.Actor {
 		return grains.NewUserGrain()
-	}))
+	}).Configure(actor.WithSpawnMiddleware(opentelemetry.TracingMiddleware())))
+
 	chatKind := cluster.NewKind(string(types.Kind_Chat), actor.PropsFromProducer(func() actor.Actor {
 		return grains.NewChatGrain()
-	}))
+	}).Configure(actor.WithSpawnMiddleware(opentelemetry.TracingMiddleware())))
 
 	// 配置 Cluster
 	clusterConfig := cluster.Configure(cfg.ClusterName, provider, lookup, remoteConfig, cluster.WithKinds(helloKind, chatKind, userKind))

@@ -15,6 +15,7 @@ import (
 	"github.com/cluster-actor/server/internal/cluster"
 	"github.com/cluster-actor/server/internal/config"
 	"github.com/cluster-actor/server/internal/grains"
+	"github.com/cluster-actor/server/internal/telemetry"
 	"github.com/cluster-actor/server/pkg/types"
 )
 
@@ -43,6 +44,36 @@ func main() {
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		log.Fatalf("加载配置失败: %v", err)
+	}
+
+	// 2. 初始化 Zipkin 追踪
+	ctx := context.Background()
+	if cfg.Tracing.Enabled {
+		if cfg.Tracing.Type == "zipkin" {
+			zipkinProvider, err := telemetry.InitZipkin(ctx, cfg.ClusterName, cfg.Tracing.Endpoint, cfg.Tracing.SampleRatio)
+			if err != nil {
+				log.Fatalf("初始化 Zipkin 追踪失败：%v", err)
+			}
+			defer func() {
+				shutdownCtx, cancel := context.WithTimeout(context.Background(), 5000)
+				defer cancel()
+				if err := zipkinProvider.Shutdown(shutdownCtx); err != nil {
+					log.Printf("关闭 Zipkin 追踪失败：%v", err)
+				}
+			}()
+			log.Printf("Zipkin 追踪已启用：端点=%s, 采样率=%.2f", cfg.Tracing.Endpoint, cfg.Tracing.SampleRatio)
+
+			// 创建测试 span 验证 Zipkin 连接
+			telemetry.TestSpan(ctx, cfg.ClusterName)
+			log.Printf("已发送测试 span 到 Zipkin UI 中查看kin UI 中查看")
+		} else if cfg.Tracing.Type == "jaeger" {
+			jaegerProvider := telemetry.InitJaeger()
+			defer jaegerProvider.Close()
+			log.Printf("Jaeger 追踪已启用：端点=%s, 采样率=%.2f", cfg.Tracing.Endpoint, cfg.Tracing.SampleRatio)
+		}
+
+	} else {
+		log.Printf("链路追踪已禁用")
 	}
 
 	// 2. 创建集群服务器（基于 protoactor-go）
@@ -82,11 +113,11 @@ func main() {
 	}
 	router := api.NewRouter(routerDeps)
 
-	// 4. 启动服务器（包含集群启动和 Grain 注册）
-	ctx, cancel := context.WithCancel(context.Background())
+	// 3. 启动服务器（包含集群启动和 Grain 注册）
+	serverCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := server.Start(ctx); err != nil {
+	if err := server.Start(serverCtx); err != nil {
 		log.Fatalf("启动集群服务器失败: %v", err)
 	}
 

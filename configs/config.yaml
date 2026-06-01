@@ -16,9 +16,16 @@ consul:
   ttl_heartbeat_interval: 10
   deregister_critical_service_after: 30
 
-# Actor系统配置
+# Actor 系统配置
 actor:
   max_grain_count: 10000
   activation_timeout: 3000
   idle_timeout: 30
   remote_call_timeout: 5000
+
+# 链路追踪配置
+tracing:
+  enabled: true
+  type: "zipkin"
+  endpoint: "http://localhost:9411/api/v2/spans"
+  sample_ratio: 1.0

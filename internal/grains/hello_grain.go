@@ -7,7 +7,9 @@ import (
 	"sync/atomic"
 
 	"github.com/asynkron/protoactor-go/actor"
+	"github.com/asynkron/protoactor-go/actor/middleware/opentelemetry"
 	"github.com/cluster-actor/server/gen"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // HelloGrain 基于 protoactor-go 的 Hello Actor 实现
@@ -26,7 +28,7 @@ func NewHelloGrain() *HelloGrain {
 
 // Init 初始化Grain，由集群框架在激活时调用
 func (g *HelloGrain) Init() {
-	log.Printf("ChatGrain[%s] Init, kind=%s, identity=%s", g.kind, g.identity)
+	log.Printf("HelloGrain[%s] Init, kind=%s, identity=%s", g.kind, g.identity)
 }
 
 func (g *HelloGrain) PreStart(ctx actor.Context) {
@@ -40,6 +42,17 @@ func (g *HelloGrain) Receive(ctx actor.Context) {
 	case *gen.RpcMsg:
 		// 处理打招呼请求（远程调用时 proto 消息为指针类型）
 		count := atomic.AddInt64(&g.CallCount, 1)
+
+		// 使用 protoactor opentelemetry 中间件获取活跃 span
+		span := opentelemetry.GetActiveSpan(ctx)
+		span.AddEvent("HelloGrain.Handle")
+		span.SetAttributes(
+			attribute.String("hello.name", msg.Name),
+			attribute.String("grain.kind", g.kind),
+			attribute.String("grain.identity", g.identity),
+			attribute.Int64("call.count", count),
+		)
+
 		response := &gen.RpcMsg{
 			MsgId:    msg.MsgId,
 			Kind:     msg.Kind,
@@ -63,3 +76,6 @@ func (g *HelloGrain) Receive(ctx actor.Context) {
 func (g *HelloGrain) GetCallCount() int64 {
 	return atomic.LoadInt64(&g.CallCount)
 }
+
+// 确保 HelloGrain 实现 actor.Actor 接口
+var _ actor.Actor = (*HelloGrain)(nil)
