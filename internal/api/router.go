@@ -8,6 +8,7 @@ import (
 	"github.com/asynkron/protoactor-go/cluster"
 	"github.com/cluster-actor/server/internal/config"
 	"github.com/cluster-actor/server/internal/grains"
+	"github.com/cluster-actor/server/internal/kvstore"
 	"github.com/cluster-actor/server/pkg/types"
 	"github.com/gin-gonic/gin"
 )
@@ -18,6 +19,7 @@ type Router struct {
 	cfg               *config.ClusterConfig
 	nodeName          string
 	cluster           *cluster.Cluster
+	kvStore           *kvstore.KVStore
 	getMembers        func() ([]*types.MemberInfo, error)
 	memberCount       func() int
 	isRunning         func() bool
@@ -31,6 +33,7 @@ type RouterDeps struct {
 	Cfg               *config.ClusterConfig
 	NodeName          string
 	Cluster           *cluster.Cluster
+	KVStore           *kvstore.KVStore
 	GetMembers        func() ([]*types.MemberInfo, error)
 	MemberCount       func() int
 	IsRunning         func() bool
@@ -53,6 +56,7 @@ func NewRouter(deps RouterDeps) *Router {
 		cfg:               deps.Cfg,
 		nodeName:          deps.NodeName,
 		cluster:           deps.Cluster,
+		kvStore:           deps.KVStore,
 		getMembers:        deps.GetMembers,
 		memberCount:       deps.MemberCount,
 		isRunning:         deps.IsRunning,
@@ -83,6 +87,7 @@ func (r *Router) setupRoutes() {
 	r.engine.Static("/static", "./web/static")
 	r.engine.StaticFile("/", "./web/index.html")
 	r.engine.StaticFile("/chat", "./web/chat.html")
+	r.engine.StaticFile("/dashboard", "./web/dashboard.html")
 
 	// 集群相关API
 	clusterGroup := r.engine.Group("/api/cluster")
@@ -100,6 +105,14 @@ func (r *Router) setupRoutes() {
 		actorGroup.GET("/kinds", r.getGrainKinds)
 		actorGroup.GET("/call/:kind/:identity", r.GrainCall)
 	}
+
+	// kvstore相关API
+	kvstoreGroup := r.engine.Group("/api/kvstore")
+	{
+		kvstoreGroup.GET("/status", r.getKVStoreStatus)
+		kvstoreGroup.GET("/key/:key", r.getKVStoreKey)
+	}
+
 }
 
 // GetEngine 获取Gin引擎

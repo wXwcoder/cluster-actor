@@ -93,6 +93,7 @@ func main() {
 		Cfg:      cfg,
 		NodeName: cfg.NodeName,
 		Cluster:  server.GetCluster(),
+		KVStore:  server.GetKVStore(),
 		GetMembers: func() ([]*types.MemberInfo, error) {
 			// 使用 protoactor cluster 的 MemberList 获取集群成员
 			memberSet := server.GetCluster().MemberList.Members()
