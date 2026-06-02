@@ -1,4 +1,4 @@
-package cluster
+package server
 
 import (
 	"context"
@@ -14,7 +14,6 @@ import (
 	"github.com/asynkron/protoactor-go/cluster/identitylookup/disthash"
 	"github.com/asynkron/protoactor-go/remote"
 	"github.com/cluster-actor/server/internal/config"
-	"github.com/cluster-actor/server/internal/global"
 	"github.com/cluster-actor/server/internal/grains"
 	"github.com/cluster-actor/server/internal/kvstore"
 	"github.com/cluster-actor/server/pkg/types"
@@ -82,10 +81,6 @@ func NewServer(cfg *config.ClusterConfig) (*Server, error) {
 		kvStore:     kv,
 		stopCh:      make(chan struct{}),
 	}
-
-	// 初始化全局注册表
-	global.G.Cfg = cfg
-	global.G.Cluster = c
 	return srv, nil
 }
 
@@ -107,7 +102,7 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 
 	s.isRunning = true
-	log.Printf("集群服务器已启动: %s (地址: %s:%d, gRPC端口: %d)",
+	log.Printf("集群服务器已启动: %s (地址: http://%s:%d, gRPC端口: %d)",
 		s.cfg.NodeName, s.cfg.Host, s.cfg.HealthCheckPort, s.cfg.Port)
 
 	return nil
@@ -184,7 +179,7 @@ func (s *Server) StartHTTPServer(handler http.Handler, addr string) {
 	}
 
 	go func() {
-		log.Printf("HTTP API服务器已启动: %s", addr)
+		log.Printf("HTTP API服务器已启动: http://%s", addr)
 		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Printf("HTTP API服务器错误: %v", err)
 		}

@@ -22,22 +22,34 @@ type IBaseGrain interface {
 
 type FMsgHandler = func(ctx actor.Context, in *gen.RpcMsg) (proto.Message, gen.ErrorCode)
 
-// BaseGrain 基于 protoactor-go 的 Hello Actor 实现
+// BaseGrain 基于 protoactor-go 的虚拟 Actor 实现
 type BaseGrain struct {
-	kind      string
-	identity  string
-	Cluster   *cluster.Cluster
-	CallCount int64
-	IsActive  bool
-	MsgFunc   map[gen.MsgId]FMsgHandler
+	PID         *actor.PID
+	ActorSystem *actor.ActorSystem
+	Kind        string
+	Identity    string
+	Cluster     *cluster.Cluster
+	CallCount   int64
+	IsActive    bool
+	MsgFunc     map[gen.MsgId]FMsgHandler
 }
 
 func (g *BaseGrain) GetKind() string {
-	return g.kind
+	return g.Kind
 }
 
 func (g *BaseGrain) GetIdentity() string {
-	return g.identity
+	return g.Identity
+}
+
+// SetIdentity 设置 grain 的唯一标识
+func (g *BaseGrain) SetIdentity(identity string) {
+	g.Identity = identity
+}
+
+// SetKind 设置 grain 的类型
+func (g *BaseGrain) SetKind(kind string) {
+	g.Kind = kind
 }
 
 func (g *BaseGrain) RegisterMsgHandler(messageId gen.MsgId, handler FMsgHandler) {
@@ -53,17 +65,30 @@ func (g *BaseGrain) RegisterMsgHandler(messageId gen.MsgId, handler FMsgHandler)
 	}
 }
 
-func (g *BaseGrain) PreStart(ctx actor.Context) {
-	ci := cluster.GetClusterIdentity(ctx)
-	if ci != nil {
-		g.kind = ci.Kind
-		g.identity = ci.Identity
-		// 注册到全局Grain注册表
-		GlobalRegistry.Register(g.kind, g.identity)
-		log.Printf("BaseGrain[%s] id=%s, RpcReq, identity=%s", ctx.Self().Id, g.kind, g.identity)
-	} else {
-		log.Printf("BaseGrain[%s] id=%s, RpcReq, 但未获取到ClusterIdentity", ctx.Self().Id, g.kind)
+func (g *BaseGrain) onStarted(ctx actor.Context) {
+	g.PID = ctx.Self()
+	g.ActorSystem = ctx.ActorSystem()
+
+	// 尝试获取 ClusterIdentity（仅当通过 Cluster 创建时有效）
+	if extCtx, ok := ctx.(actor.ExtensionContext); ok {
+		ci := cluster.GetClusterIdentity(extCtx)
+		if ci != nil {
+			g.Kind = ci.Kind
+			g.Identity = ci.Identity
+		}
 	}
+
+	// 本地 Actor 使用默认值
+	if g.Kind == "" {
+		g.Kind = "local_actor"
+	}
+	if g.Identity == "" {
+		g.Identity = ctx.Self().Id
+	}
+
+	// 注册到全局 Grain 注册表
+	GlobalRegistry.Register(g.Kind, g.Identity)
+	log.Printf("BaseGrain started, kind=%s, identity=%s", g.Kind, g.Identity)
 	g.IsActive = true
 }
 
@@ -72,20 +97,19 @@ func (g *BaseGrain) Init(ctx cluster.GrainContext) {
 	log.Printf("BaseGrain[%s] Init", ctx.Self().Id)
 }
 
-func (g *BaseGrain) RequestFuture(identity string, kind string, message interface{}, option ...cluster.GrainCallOption) (actor.Future, error) {
-	return g.Cluster.RequestFuture(identity, kind, message, option...)
-}
+// func (g *BaseGrain) RequestFuture(identity string, kind string, message interface{}, option ...cluster.GrainCallOption) (actor.Future, error) {
+// 	return g.Cluster.RequestFuture(identity, kind, message, option...)
+// }
 
 // Receive 处理传入消息，实现 actor.Receiver 接口
 // func (g *BaseGrain) Receive(ctx actor.Context) {
 // 	//g._receive(g, ctx)
 // }
 
-func (g *BaseGrain) OnReceive(ctx actor.Context) *gen.RpcMsg {
-	if !g.IsActive {
-		g.PreStart(ctx)
-	}
+func (g *BaseGrain) Receive(ctx actor.Context) {
 	switch msg := ctx.Message().(type) {
+	case *actor.Started:
+		g.onStarted(ctx)
 	case *gen.RpcMsg:
 		var msgName string
 		reqName, ok := gen.MsgId_name[msg.MsgId]
@@ -93,10 +117,10 @@ func (g *BaseGrain) OnReceive(ctx actor.Context) *gen.RpcMsg {
 			msgName = reqName
 		}
 		log.Printf("BaseActor OnReceive0 identity:%s kind:%s name:%s msgName:%s msgId:%d code:%d traceID:%s",
-			g.identity, g.kind, msg.Name, reqName, msg.MsgId, msg.Code, msg.TraceID)
+			g.Identity, g.Kind, msg.Name, reqName, msg.MsgId, msg.Code, msg.TraceID)
 
 		// 使用 OpenTelemetry 创建新的 Span
-		tracer := telemetry.GetTracer(g.kind)
+		tracer := telemetry.GetTracer(g.Kind)
 		var spanOpts []trace.SpanStartOption
 
 		// 如果有上游 TraceID，创建 Link 关联分布式追踪链路
@@ -117,8 +141,8 @@ func (g *BaseGrain) OnReceive(ctx actor.Context) *gen.RpcMsg {
 		}
 
 		spanOpts = append(spanOpts, trace.WithAttributes(
-			attribute.String("grain.kind", g.kind),
-			attribute.String("grain.identity", g.identity),
+			attribute.String("grain.kind", g.Kind),
+			attribute.String("grain.identity", g.Identity),
 			attribute.String("msg.name", msg.Name),
 			attribute.String("msg.type", msgName),
 			attribute.Int64("msg.id", int64(msg.MsgId)),
@@ -153,15 +177,11 @@ func (g *BaseGrain) OnReceive(ctx actor.Context) *gen.RpcMsg {
 			msg.Code = int32(gen.ErrorCode_UnknownMsgId)
 			span.SetAttributes(attribute.String("error", "unknown_msg_id"))
 		}
+		ctx.Respond(msg)
 		log.Printf("BaseActor OnReceive1 identity:%s kind:%s name:%s msgName:%s msgId:%d code:%d traceID:%s",
-			g.identity, g.kind, msg.Name, msgName, msg.MsgId, msg.Code, msg.TraceID)
-		return msg
+			g.Identity, g.Kind, msg.Name, msgName, msg.MsgId, msg.Code, msg.TraceID)
 	default:
-		return &gen.RpcMsg{
-			Kind:     g.kind,
-			Identity: g.identity,
-			Code:     int32(gen.ErrorCode_UnknownMsgId),
-		}
+		log.Printf("BaseActor Receive unknown message type: %T", msg)
 	}
 }
 

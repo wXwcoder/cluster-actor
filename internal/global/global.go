@@ -9,6 +9,7 @@ import (
 	"github.com/asynkron/protoactor-go/cluster"
 	"github.com/cluster-actor/server/gen"
 	"github.com/cluster-actor/server/internal/config"
+	"github.com/cluster-actor/server/internal/kvstore"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -20,6 +21,7 @@ import (
 type GlobalRegistry struct {
 	Cfg     *config.ClusterConfig
 	Cluster *cluster.Cluster
+	KVStore *kvstore.KVStore
 }
 
 var G = &GlobalRegistry{}

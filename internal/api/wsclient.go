@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"sync"
 
@@ -17,6 +18,7 @@ type SubscribeHandler func(ctx actor.Context)
 type WSClient struct {
 	cluster     *cluster.Cluster
 	conn        *websocket.Conn
+	pid         *actor.PID
 	userID      int64
 	username    string
 	sessionID   string
@@ -33,17 +35,32 @@ func NewWSClient(cluster *cluster.Cluster, conn *websocket.Conn) *WSClient {
 	}
 }
 
-func (wc *WSClient) SubscribeTopic(topic string) {
+func (wc *WSClient) GetUserID() int64 {
+	return wc.userID
+}
+
+func (wc *WSClient) GetSessionID() string {
+	return wc.sessionID
+}
+
+func (wc *WSClient) OnLogin() error {
 	// 1. 在本地创建 WebSocketGrain（关键！）
 	// 使用 actor.Spawn 而不是 cluster.Spawn
-	props := NewWebSocketGrainProps(wc, topic)
-	pid := wc.cluster.ActorSystem.Root.Spawn(props) // 本地创建
+	props := NewWebSocketGrainProps(wc, wc.sessionID)
+	wc.pid = wc.cluster.ActorSystem.Root.Spawn(props) // 本地创建
+	if wc.pid == nil {
+		return fmt.Errorf("Spawn WebSocketGrain failed")
+	}
+	log.Printf("WSClient[%d:%s] OnLogin success, sessionID:%s", wc.userID, wc.username, wc.sessionID)
+	return nil
+}
 
+func (wc *WSClient) SubscribeTopic(topic string) {
 	// 2. 本地订阅（关键！）
 	// 使用 SubscribeByPid 确保只在本地订阅
-	_, err := wc.cluster.SubscribeByPid(topic, pid)
+	_, err := wc.cluster.SubscribeByPid(topic, wc.pid)
 	if err != nil {
-		wc.cluster.ActorSystem.Root.Stop(pid)
+		//wc.cluster.ActorSystem.Root.Stop(wc.pid)
 		// 处理订阅错误
 		log.Printf("SubscribeTopic failed: %v", err)
 		return

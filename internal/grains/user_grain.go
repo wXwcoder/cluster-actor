@@ -56,7 +56,7 @@ func (g *UserGrain) Init() {
 	g.RegisterMsgHandler(gen.MsgId_PChatUserMessage, g.ChatUserMessage)
 	g.RegisterMsgHandler(gen.MsgId_PChatGetUserInfoReq, g.ChatGetUserInfoReq)
 
-	log.Printf("UserGrain[%s] Actor 启动", g.identity)
+	log.Printf("UserGrain[%s] Actor 启动", g.Identity)
 }
 
 func (g *UserGrain) ChatGetUserInfoReq(ctx actor.Context, in *gen.RpcMsg) (proto.Message, gen.ErrorCode) {
@@ -91,11 +91,11 @@ func (g *UserGrain) ChatUserMessage(ctx actor.Context, in *gen.RpcMsg) (proto.Me
 	}
 	// 接收发送给用户的消息（从ChatGrain转发过来）
 	if !g.isOnline {
-		log.Printf("UserGrain[%s] 用户不在线，无法接收消息", g.identity)
+		log.Printf("UserGrain[%s] 用户不在线，无法接收消息", g.Identity)
 		return nil, gen.ErrorCode_UserNotLoggedIn
 	}
 
-	log.Printf("UserGrain[%s] 接收到消息: %+v", g.identity, msg.GetMessage())
+	log.Printf("UserGrain[%s] 接收到消息: %+v", g.Identity, msg.GetMessage())
 
 	// TODO: 通过WebSocket会话管理器发送消息到客户端
 	// if g.sessionId != "" {
@@ -124,7 +124,7 @@ func (g *UserGrain) ChatLogoutReq(ctx actor.Context, in *gen.RpcMsg) (proto.Mess
 		Code:    gen.ErrorCode_OK,
 		Message: "登出成功",
 	}
-	log.Printf("UserGrain[%s] 用户登出: userId=%d", g.identity, g.userId)
+	log.Printf("UserGrain[%s] 用户登出: userId=%d", g.Identity, g.userId)
 	return response, gen.ErrorCode_OK
 }
 
@@ -141,7 +141,7 @@ func (g *UserGrain) ChatLoginReq(ctx actor.Context, in *gen.RpcMsg) (proto.Messa
 	g.loginTime = time.Now().UnixMilli()
 
 	log.Printf("UserGrain[%s] 用户登录: userId=%d, username=%s, sessionId=%s",
-		g.identity, g.userId, g.username, g.sessionId)
+		g.Identity, g.userId, g.username, g.sessionId)
 
 	userInfo := &gen.ChatUserInfo{
 		UserId:        g.userId,
@@ -160,25 +160,25 @@ func (g *UserGrain) ChatLoginReq(ctx actor.Context, in *gen.RpcMsg) (proto.Messa
 }
 
 // Receive 处理传入消息，实现 actor.Receiver 接口
-func (g *UserGrain) Receive(ctx actor.Context) {
-	switch ctx.Message().(type) {
-	case *gen.RpcMsg:
-		response := g.OnReceive(ctx)
-		ctx.Respond(response)
-	case actor.Started:
-		// Actor 启动时初始化
-		GlobalRegistry.Register(g.kind, g.identity)
-		log.Printf("UserGrain[%s] 启动, identity=%s", g.identity, g.identity)
+// func (g *UserGrain) Receive(ctx actor.Context) {
+// 	switch ctx.Message().(type) {
+// 	case *gen.RpcMsg:
+// 		response := g.OnReceive(ctx)
+// 		ctx.Respond(response)
+// 	case actor.Started:
+// 		// Actor 启动时初始化
+// 		GlobalRegistry.Register(g.kind, g.identity)
+// 		log.Printf("UserGrain[%s] 启动, identity=%s", g.identity, g.identity)
 
-	case actor.Stopped:
-		// Actor 停止时清理
-		if g.isOnline && g.currentRoom != "" {
-			g.leaveCurrentRoom(ctx)
-		}
-		GlobalRegistry.Unregister(g.kind, g.identity)
-		log.Printf("UserGrain[%s] 停止, identity=%s", g.identity, g.identity)
-	}
-}
+// 	case actor.Stopped:
+// 		// Actor 停止时清理
+// 		if g.isOnline && g.currentRoom != "" {
+// 			g.leaveCurrentRoom(ctx)
+// 		}
+// 		GlobalRegistry.Unregister(g.kind, g.identity)
+// 		log.Printf("UserGrain[%s] 停止, identity=%s", g.identity, g.identity)
+// 	}
+// }
 
 // leaveCurrentRoom 离开当前房间
 func (g *UserGrain) leaveCurrentRoom(ctx actor.Context) {
@@ -186,7 +186,7 @@ func (g *UserGrain) leaveCurrentRoom(ctx actor.Context) {
 		return
 	}
 
-	log.Printf("UserGrain[%s] 离开房间: %s", g.identity, g.currentRoom)
+	log.Printf("UserGrain[%s] 离开房间: %s", g.Identity, g.currentRoom)
 
 	// 发送离开请求到ChatGrain
 	leaveReq := &gen.ChatLeaveRoomReq{

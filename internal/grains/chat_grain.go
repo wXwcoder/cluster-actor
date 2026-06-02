@@ -37,6 +37,17 @@ func NewChatGrain() *ChatGrain {
 	return actor
 }
 
+// func (g *ChatGrain) onStarted(ctx actor.Context) {
+// 	// Actor 启动时初始化
+// 	g.pid = ctx.Self() // 使用 PID 的 ID 作为用户标识
+// 	g.actorSystem = ctx.ActorSystem()
+
+// 	GlobalRegistry.Register(g.kind, g.identity)
+// 	ctx.Logger().Info("ChatGrain started",
+// 		slog.String("pid", g.pid.Id))
+// 	log.Printf("ChatGrain[%s] 启动, kind=%s, identity=%s", g.pid.Id, g.kind, g.identity)
+// }
+
 // Init 初始化Grain，由集群框架在激活时调用
 func (g *ChatGrain) Init() {
 	// g.kind = ctx.Kind()
@@ -61,7 +72,7 @@ func (g *ChatGrain) Init() {
 	g.RegisterMsgHandler(gen.MsgId_PChatGetRoomUsersReq, g.ChatGetRoomUsersReq)
 	g.RegisterMsgHandler(gen.MsgId_PChatGetMessagesReq, g.ChatGetMessagesReq)
 	g.RegisterMsgHandler(gen.MsgId_PChatGetRoomListReq, g.ChatGetRoomListReq)
-	log.Printf("ChatGrain[%s] Actor 启动", g.identity)
+	log.Printf("ChatGrain[%s] Actor 启动", g.Identity)
 }
 
 func (g *ChatGrain) ChatGetRoomListReq(ctx actor.Context, in *gen.RpcMsg) (proto.Message, gen.ErrorCode) {
@@ -166,7 +177,7 @@ func (g *ChatGrain) ChatGetRoomInfoReq(ctx actor.Context, in *gen.RpcMsg) (proto
 	defer g.mu.RUnlock()
 
 	roomInfo := &gen.ChatRoomInfo{
-		RoomId:         g.identity,
+		RoomId:         g.Identity,
 		RoomName:       g.roomName,
 		CreatorName:    g.creatorName,
 		CreatorId:      g.creatorId,
@@ -207,7 +218,7 @@ func (g *ChatGrain) ChatSendMessageReq(ctx actor.Context, in *gen.RpcMsg) (proto
 		MsgId:      generateMsgId(),
 		SenderId:   msg.GetSenderId(),
 		SenderName: msg.GetSenderName(),
-		RoomId:     g.identity,
+		RoomId:     g.Identity,
 		Type:       msg.GetType(),
 		Content:    msg.GetContent(),
 		Timestamp:  time.Now().UnixMilli(),
@@ -229,7 +240,7 @@ func (g *ChatGrain) ChatSendMessageReq(ctx actor.Context, in *gen.RpcMsg) (proto
 	g.mu.Unlock()
 
 	log.Printf("ChatGrain[%s] 消息发送: userId=%d, username=%s, content=%s",
-		g.identity, chatMsg.GetSenderId(), chatMsg.GetSenderName(), chatMsg.GetContent())
+		g.Identity, chatMsg.GetSenderId(), chatMsg.GetSenderName(), chatMsg.GetContent())
 
 	// 广播消息给房间内所有用户
 	//g.broadcastToMembers(ctx, chatMsg, 0)
@@ -265,14 +276,14 @@ func (g *ChatGrain) ChatLeaveRoomReq(ctx actor.Context, in *gen.RpcMsg) (proto.M
 	delete(g.members, userId)
 
 	log.Printf("ChatGrain[%s] 用户离开: userId=%d, username=%s, 剩余人数=%d",
-		g.identity, userId, username, len(g.members))
+		g.Identity, userId, username, len(g.members))
 
 	// 发送系统消息通知其他用户
 	systemMsg := &gen.ChatMessage{
 		MsgId:      generateMsgId(),
 		SenderId:   0,
 		SenderName: "System",
-		RoomId:     g.identity,
+		RoomId:     g.Identity,
 		Type:       gen.ChatMsgType_LEAVE,
 		Content:    username + " 离开了房间",
 		Timestamp:  time.Now().UnixMilli(),
@@ -288,7 +299,7 @@ func (g *ChatGrain) ChatLeaveRoomReq(ctx actor.Context, in *gen.RpcMsg) (proto.M
 	}
 
 	// 更新全局房间注册表成员数
-	GlobalRoomRegistry.UpdateRoomMembers(g.identity, int32(len(g.members)))
+	GlobalRoomRegistry.UpdateRoomMembers(g.Identity, int32(len(g.members)))
 	return response, gen.ErrorCode_OK
 }
 
@@ -321,7 +332,7 @@ func (g *ChatGrain) ChatJoinRoomReq(ctx actor.Context, in *gen.RpcMsg) (proto.Me
 			Code:    gen.ErrorCode_OK,
 			Message: "用户已在房间中",
 			Room: &gen.ChatRoomInfo{
-				RoomId:         g.identity,
+				RoomId:         g.Identity,
 				RoomName:       g.roomName,
 				CreatorName:    g.creatorName,
 				CreatorId:      g.creatorId,
@@ -338,20 +349,20 @@ func (g *ChatGrain) ChatJoinRoomReq(ctx actor.Context, in *gen.RpcMsg) (proto.Me
 		UserId:        userId,
 		Username:      username,
 		IsOnline:      true,
-		CurrentRoomId: g.identity,
+		CurrentRoomId: g.Identity,
 		LoginTime:     time.Now().UnixMilli(),
 	}
 	g.members[userId] = userInfo
 
 	log.Printf("ChatGrain[%s] 用户加入: userId=%d, username=%s, 当前人数=%d",
-		g.identity, userId, username, len(g.members))
+		g.Identity, userId, username, len(g.members))
 
 	// 发送系统消息通知其他用户
 	systemMsg := &gen.ChatMessage{
 		MsgId:      generateMsgId(),
 		SenderId:   0,
 		SenderName: "System",
-		RoomId:     g.identity,
+		RoomId:     g.Identity,
 		Type:       gen.ChatMsgType_JOIN,
 		Content:    username + " 加入了房间",
 		Timestamp:  time.Now().UnixMilli(),
@@ -365,7 +376,7 @@ func (g *ChatGrain) ChatJoinRoomReq(ctx actor.Context, in *gen.RpcMsg) (proto.Me
 	recentMessages := g.getRecentMessages(20)
 
 	roomInfo := &gen.ChatRoomInfo{
-		RoomId:         g.identity,
+		RoomId:         g.Identity,
 		RoomName:       g.roomName,
 		CreatorName:    g.creatorName,
 		CreatorId:      g.creatorId,
@@ -399,10 +410,10 @@ func (g *ChatGrain) ChatCreateRoomReq(ctx actor.Context, in *gen.RpcMsg) (proto.
 	g.createdAt = time.Now().UnixMilli()
 	g.mu.Unlock()
 	log.Printf("ChatGrain[%s] 房间创建: name=%s, creator=%s, maxMembers=%d",
-		g.identity, g.roomName, g.creatorName, g.maxMembers)
+		g.Identity, g.roomName, g.creatorName, g.maxMembers)
 	// 注册到全局房间注册表
 	roomInfo := &gen.ChatRoomInfo{
-		RoomId:         g.identity,
+		RoomId:         g.Identity,
 		RoomName:       g.roomName,
 		CreatorName:    g.creatorName,
 		CreatorId:      g.creatorId,
@@ -410,10 +421,11 @@ func (g *ChatGrain) ChatCreateRoomReq(ctx actor.Context, in *gen.RpcMsg) (proto.
 		CurrentMembers: 0,
 		CreatedAt:      g.createdAt,
 	}
+
 	GlobalRoomRegistry.RegisterRoom(roomInfo)
 
 	log.Printf("ChatGrain[%s] 房间创建: name=%s, creator=%s, maxMembers=%d",
-		g.identity, g.roomName, g.creatorName, g.maxMembers)
+		g.Identity, g.roomName, g.creatorName, g.maxMembers)
 
 	response := &gen.ChatCreateRoomResp{
 		Code:    gen.ErrorCode_OK,
@@ -424,28 +436,27 @@ func (g *ChatGrain) ChatCreateRoomReq(ctx actor.Context, in *gen.RpcMsg) (proto.
 }
 
 // Receive 处理传入消息，实现 actor.Receiver 接口
-func (g *ChatGrain) Receive(ctx actor.Context) {
-	switch ctx.Message().(type) {
-	case *gen.RpcMsg:
-		response := g.OnReceive(ctx)
-		ctx.Respond(response)
-	case actor.Started:
-		// Actor 启动时初始化
-		GlobalRegistry.Register(g.kind, g.identity)
-		log.Printf("ChatGrain[%s] 启动, identity=%s", g.identity, g.identity)
+// func (g *ChatGrain) Receive(ctx actor.Context) {
+// 	switch ctx.Message().(type) {
+// 	case *gen.RpcMsg:
+// 		response := g.OnReceive(ctx)
+// 		ctx.Respond(response)
+// 	//case actor.Started:
+// 	case *actor.Started:
+// 		g.onStarted(ctx)
 
-	case actor.Stopped:
-		// Actor 停止时清理
-		GlobalRegistry.Unregister(g.kind, g.identity)
-		log.Printf("ChatGrain[%s] 停止, identity=%s", g.identity, g.identity)
-	}
-}
+// 	case actor.Stopped:
+// 		// Actor 停止时清理
+// 		GlobalRegistry.Unregister(g.kind, g.identity)
+// 		log.Printf("ChatGrain[%s] 停止, identity=%s", g.identity, g.identity)
+// 	}
+// }
 
 // broadcastToMembers 广播消息给房间内所有用户（排除指定用户）
 func (g *ChatGrain) broadcastToMembers(ctx actor.Context, message *gen.ChatUserMessage, excludeUserId int64) {
 	// 发布消息到房间
-	if err := G.Publish(g.identity, message); err != nil {
-		log.Printf("ChatGrain[%s] 发布消息到房间失败: %v", g.identity, err)
+	if err := G.Publish(g.Identity, message); err != nil {
+		log.Printf("ChatGrain[%s] 发布消息到房间失败: %v", g.Identity, err)
 		return
 	}
 }

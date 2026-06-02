@@ -12,9 +12,10 @@ import (
 	"syscall"
 
 	"github.com/cluster-actor/server/internal/api"
-	"github.com/cluster-actor/server/internal/cluster"
 	"github.com/cluster-actor/server/internal/config"
+	"github.com/cluster-actor/server/internal/global"
 	"github.com/cluster-actor/server/internal/grains"
+	"github.com/cluster-actor/server/internal/server"
 	"github.com/cluster-actor/server/internal/telemetry"
 	"github.com/cluster-actor/server/pkg/types"
 )
@@ -77,10 +78,15 @@ func main() {
 	}
 
 	// 2. 创建集群服务器（基于 protoactor-go）
-	server, err := cluster.NewServer(cfg)
+	server, err := server.NewServer(cfg)
 	if err != nil {
 		log.Fatalf("创建集群服务器失败: %v", err)
 	}
+
+	// 初始化全局注册表
+	global.G.Cfg = cfg
+	global.G.Cluster = server.GetCluster()
+	global.G.KVStore = server.GetKVStore()
 
 	// 3. 初始化HTTP路由
 	routerDeps := api.RouterDeps{

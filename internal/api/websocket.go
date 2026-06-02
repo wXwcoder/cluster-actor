@@ -238,6 +238,7 @@ func (wm *WebSocketManager) handleLogin(client *WSClient, msg *WSMessage) {
 	log.Printf("登录响应: userID:%d %v", userID, resp)
 	if resp, ok := resp.(*gen.ChatLoginResp); ok {
 		if resp.GetCode() == gen.ErrorCode_OK {
+			client.OnLogin()
 			// 登录成功，返回用户信息
 			wm.sendToClient(client, &WSMessage{
 				Type:    "login_success",

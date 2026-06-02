@@ -19,7 +19,8 @@ type KindType string
 // KindTypeChat 聊天成员类型
 
 const (
-	Kind_Hello KindType = "hello"
-	Kind_User  KindType = "user"
-	Kind_Chat  KindType = "chat"
+	Kind_Hello    KindType = "hello"
+	Kind_User     KindType = "user"
+	Kind_Chat     KindType = "chat"
+	Kind_WsClient KindType = "client"
 )
